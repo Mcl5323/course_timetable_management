@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1005</width>
-    <height>554</height>
+    <width>990</width>
+    <height>538</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -115,9 +115,9 @@ font-size:30px
    <property name="styleSheet">
     <string notr="true">font: 10pt &quot;Segoe UI&quot;;</string>
    </property>
-   <property name="text">
-    <string>Confirm</string>
-   </property>
+    <property name="text">
+     <string>Confirm</string>
+    </property>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
@@ -147,9 +147,9 @@ font-size:30px
    <property name="styleSheet">
     <string notr="true">font: 14pt &quot;Segoe UI&quot;;</string>
    </property>
-   <property name="text">
-    <string>Confirm Password：</string>
-   </property>
+    <property name="text">
+     <string>Confirm Password：</string>
+    </property>
   </widget>
   <widget class="QLineEdit" name="lineEdit_ConfirmPassword_2">
    <property name="geometry">

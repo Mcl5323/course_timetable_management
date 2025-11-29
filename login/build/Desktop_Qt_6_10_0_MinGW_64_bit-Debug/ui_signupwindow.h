@@ -35,7 +35,7 @@ public:
     {
         if (SignupWindow->objectName().isEmpty())
             SignupWindow->setObjectName("SignupWindow");
-        SignupWindow->resize(990, 538);
+        SignupWindow->resize(1005, 554);
         SignupWindow->setStyleSheet(QString::fromUtf8("background-color: rgb(40, 40, 40);\n"
 ""));
         lineEdit_StudentID = new QLineEdit(SignupWindow);

@@ -6,7 +6,7 @@
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../../../mainwindow.h"
+#include "../../../../../Student Course Registration & Timetable Management System/course_timetable_management/login/mainwindow.h"
 #include <QtCore/qmetatype.h>
 
 #include <QtCore/qtmochelpers.h>
