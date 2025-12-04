@@ -13,6 +13,8 @@
 #include <QString>
 
 class MainWindow;
+class TIMETABLE;
+class LoadingDialog;
 
 namespace Ui {
 class ManageCoursesPage;
@@ -84,9 +86,15 @@ private slots:
 
     /**
      * Generates a timetable from the added courses
-     * (Currently shows a placeholder message)
+     * Shows loading dialog and then displays timetable
      */
     void onGenerateTimetable();
+
+    /**
+     * Called when loading is complete
+     * Opens the timetable window
+     */
+    void onLoadingComplete();
 
     /**
      * Displays the generated timetable
@@ -115,6 +123,12 @@ private:
      */
     void setupConnections();
 
+    /**
+     * Converts time string to 24-hour integer for comparison
+     * e.g., "8am" -> 8, "2pm" -> 14
+     */
+    int timeToInt(const QString &time);
+
     // Private member variables
 
     Ui::ManageCoursesPage *ui;  // Pointer to UI components
@@ -134,6 +148,16 @@ private:
      * adding new courses and editing existing ones
      */
     int editingRow;
+
+    /**
+     * Timetable window pointer
+     */
+    TIMETABLE *timetableWindow;
+
+    /**
+     * Loading dialog pointer
+     */
+    LoadingDialog *loadingDialog;
 };
 
 #endif // MANAGECOURSESPAGE_H

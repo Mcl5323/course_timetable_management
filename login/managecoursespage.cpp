@@ -9,6 +9,8 @@
 #include "managecoursespage.h"
 #include "ui_managecoursespage.h"
 #include "mainwindow.h"
+#include "timetable.h"
+#include "loadingdialog.h"
 #include <QMessageBox>
 #include <QPushButton>
 #include <QCheckBox>
@@ -20,6 +22,7 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QTableWidget>
+#include <QTimer>
 
 /**
  * ManageCoursesPage Constructor
@@ -39,14 +42,17 @@
 ManageCoursesPage::ManageCoursesPage(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::ManageCoursesPage)
-    , editingRow(-1) {
+    , editingRow(-1)
+    , timetableWindow(nullptr)
+    , loadingDialog(nullptr) {
 
     // Set up the user interface from Qt Designer
     ui->setupUi(this);
 
-    // Configure window properties
+    // Configure window properties - force full screen
     this->setWindowTitle("Manage Courses");
-    this->setGeometry(100, 100, 1400, 900);  // Position (100,100), Size (1400x900)
+    this->setWindowState(Qt::WindowMaximized);  // Force maximize window
+    this->showMaximized();  // Maximize window
     this->setStyleSheet("background-color: #34495e;");  // Dark blue-gray background
 
     /**
@@ -63,8 +69,8 @@ ManageCoursesPage::ManageCoursesPage(QWidget *parent)
     /**
      * Setup Time Selection ComboBoxes
      *
-     * Populates start and end time dropdowns with 12-hour format times.
-     * Format: 12am, 1am, 2am, ..., 11am, 12pm, 1pm, ..., 11pm
+     * Populates start and end time dropdowns with university hours only.
+     * Format: 8am to 10pm (normal university class hours)
      *
      * This provides a user-friendly time selection interface instead
      * of requiring users to type times manually.
@@ -72,15 +78,14 @@ ManageCoursesPage::ManageCoursesPage(QWidget *parent)
     if (ui->startTimeLabel) {
         QStringList hours;
 
-        // Add midnight to 11am
-        hours << "12am";
-        for (int i = 1; i <= 11; ++i) {
-            hours << QString("%1am").arg(i);  // %1 is placeholder for the number
+        // Add 8am to 11am
+        for (int i = 8; i <= 11; ++i) {
+            hours << QString("%1am").arg(i);
         }
 
-        // Add noon to 11pm
+        // Add 12pm to 10pm
         hours << "12pm";
-        for (int i = 1; i <= 11; ++i) {
+        for (int i = 1; i <= 10; ++i) {
             hours << QString("%1pm").arg(i);
         }
 
@@ -91,12 +96,14 @@ ManageCoursesPage::ManageCoursesPage(QWidget *parent)
     if (ui->endTimeInput) {
         QStringList hours;
 
-        hours << "12am";
-        for (int i = 1; i <= 11; ++i) {
+        // Add 8am to 11am
+        for (int i = 8; i <= 11; ++i) {
             hours << QString("%1am").arg(i);
         }
+
+        // Add 12pm to 10pm
         hours << "12pm";
-        for (int i = 1; i <= 11; ++i) {
+        for (int i = 1; i <= 10; ++i) {
             hours << QString("%1pm").arg(i);
         }
 
@@ -126,25 +133,32 @@ ManageCoursesPage::ManageCoursesPage(QWidget *parent)
         // Start with 0 rows (empty table)
         ui->coursetable->setRowCount(0);
 
-        // Make columns stretch to fill available width
+        // Set specific column widths to show full content
         ui->coursetable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->coursetable->setColumnWidth(0, 80);   // Select checkbox
+        ui->coursetable->setColumnWidth(1, 180);  // Course Name
+        ui->coursetable->setColumnWidth(2, 120);  // Day
+        ui->coursetable->setColumnWidth(3, 120);  // Time
+        ui->coursetable->setColumnWidth(4, 120);  // Classroom
+        ui->coursetable->setColumnWidth(5, 180);  // Actions (Edit + Delete buttons)
 
         /**
          * Scrolling Configuration
-         * Limit table height to ~10 rows, then enable vertical scrolling
-         * This prevents the table from taking up too much screen space
+         * Limit table height to ~10 rows, enable vertical scrolling
+         * Enable horizontal scrolling to show full content
          */
         ui->coursetable->setMaximumHeight(400);
         ui->coursetable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        ui->coursetable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        ui->coursetable->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
         /**
          * Table Header Styling (CSS-like syntax)
          * Sets background color, text color, padding, borders, and font
+         * All columns have the same blue background
          */
         ui->coursetable->horizontalHeader()->setStyleSheet(
             "QHeaderView::section {"
-            "background-color: #3498db;"  // Blue background
+            "background-color: #3498db;"  // Blue background for all columns
             "color: white;"               // White text
             "padding: 8px;"               // Spacing inside header
             "border: none;"               // No borders
@@ -155,34 +169,30 @@ ManageCoursesPage::ManageCoursesPage(QWidget *parent)
 
         /**
          * Table Cell Styling (CSS-like syntax)
-         * Defines appearance for different cell states:
-         * - Normal cells
-         * - Selected cells
-         * - Hover state
-         * - Alternating row colors
+         * Removes selection highlighting - only checkbox will control row highlighting
          */
         ui->coursetable->setStyleSheet(
             "QTableWidget {"
-            "background-color: white;"                     // White background
-            "alternate-background-color: #f0f0f0;"        // Light gray for alternating rows
+            "background-color: white;"                     // White background for all rows
             "gridline-color: #d0d0d0;"                    // Grid line color
             "font-size: 11px;"
+            "selection-background-color: transparent;"    // Remove selection background
             "}"
             "QTableWidget::item {"
             "color: black;"                               // Black text
-            "padding: 5px;"                               // Cell padding
+            "padding: 0px;"                               // No padding for full background coverage
             "}"
             "QTableWidget::item:selected {"
-            "background-color: #3498db;"                  // Blue when selected
-            "color: white;"                               // White text when selected
+            "background-color: transparent;"              // No blue selection effect
+            "color: black;"                               // Keep text black
             "}"
             "QTableWidget::item:hover {"
             "background-color: transparent;"              // No hover effect
             "}"
             );
 
-        // Enable alternating row colors for better readability
-        ui->coursetable->setAlternatingRowColors(true);
+        // Disable alternating row colors - all rows should be white
+        ui->coursetable->setAlternatingRowColors(false);
     }
 
     /**
@@ -219,6 +229,32 @@ ManageCoursesPage::ManageCoursesPage(QWidget *parent)
  */
 ManageCoursesPage::~ManageCoursesPage() {
     delete ui;
+    if (timetableWindow) {
+        delete timetableWindow;
+    }
+    if (loadingDialog) {
+        delete loadingDialog;
+    }
+}
+
+// helper function to compare times
+// turns "8am" into 8, "2pm" into 14, etc so we can check if end time > start time
+int ManageCoursesPage::timeToInt(const QString &time) {
+    QString t = time.toLower().trimmed();
+    bool isPM = t.contains("pm");
+
+    QString numStr = t;
+    numStr.remove("am").remove("pm");
+    int hour = numStr.toInt();
+
+    // convert to 24 hour format for easier comparison
+    if (isPM && hour != 12) {
+        hour += 12;  // like 2pm becomes 14
+    } else if (!isPM && hour == 12) {
+        hour = 0;  // midnight edge case
+    }
+
+    return hour;
 }
 
 /**
@@ -282,7 +318,7 @@ void ManageCoursesPage::onAddCourse() {
         msgBox.setWindowTitle("Invalid Input");
         msgBox.setText("Please enter course name!");
         msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
         ui->courseNameInput->setFocus();  // Move cursor to the field that needs input
         return;
@@ -294,7 +330,7 @@ void ManageCoursesPage::onAddCourse() {
         msgBox.setWindowTitle("Invalid Input");
         msgBox.setText("Please select start time!");
         msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
         ui->startTimeLabel->setFocus();
         return;
@@ -306,7 +342,7 @@ void ManageCoursesPage::onAddCourse() {
         msgBox.setWindowTitle("Invalid Input");
         msgBox.setText("Please select end time!");
         msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
         ui->endTimeInput->setFocus();
         return;
@@ -318,36 +354,55 @@ void ManageCoursesPage::onAddCourse() {
         msgBox.setWindowTitle("Invalid Input");
         msgBox.setText("Please enter classroom!");
         msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
         ui->classroomInput->setFocus();
         return;
     }
 
-    /**
-     * Duplicate Detection
-     *
-     * Prevents scheduling conflicts by checking if another course
-     * is already scheduled at the same day, time, and classroom.
-     *
-     * When editing, we skip checking against the course being edited
-     * (since it would always match itself).
-     */
+    // Validate time logic: end time must be after start time
+    if (timeToInt(startTime) >= timeToInt(endTime)) {
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Invalid Time");
+        msgBox.setText(QString("End time (%1) must be after start time (%2)!")
+                      .arg(endTime, startTime));
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
+        msgBox.exec();
+        ui->endTimeInput->setFocus();
+        return;
+    }
+
+    // check for duplicates
+    // note: we allow same course name with different times/rooms
+    // (useful for courses with multiple sections)
+    // but prevent EXACT duplicates (same everything)
     for (int i = 0; i < courses.size(); ++i) {
-        // Skip the course we're editing (if in edit mode)
+        // when editing, don't compare with the course we're currently editing
         if (i == editingRow) continue;
 
-        // Check for conflict: same day, start time, and classroom
-        if (courses[i].day == day &&
+        // check if everything matches
+        if (courses[i].name == name &&
+            courses[i].day == day &&
             courses[i].startTime == startTime &&
+            courses[i].endTime == endTime &&
             courses[i].classroom == classroom) {
 
+            // show error message with details
             QMessageBox msgBox(this);
             msgBox.setWindowTitle("Duplicate Course");
-            msgBox.setText(QString("A course already exists at %1 on %2 in classroom %3!")
-                          .arg(startTime, day, classroom));  // %1, %2, %3 are placeholders
+            msgBox.setText(QString("This exact course already exists!\n\n"
+                          "Course: %1\n"
+                          "Day: %2\n"
+                          "Time: %3 - %4\n"
+                          "Classroom: %5")
+                          .arg(name)
+                          .arg(day)
+                          .arg(startTime)
+                          .arg(endTime)
+                          .arg(classroom));
             msgBox.setIcon(QMessageBox::Warning);
-            msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+            msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
             msgBox.exec();
             return;
         }
@@ -381,7 +436,7 @@ void ManageCoursesPage::onAddCourse() {
         msgBox.setWindowTitle("Success");
         msgBox.setText(QString("Course '%1' updated successfully!").arg(name));
         msgBox.setIcon(QMessageBox::Information);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
     } else {
         /**
@@ -410,7 +465,7 @@ void ManageCoursesPage::onAddCourse() {
         msgBox.setWindowTitle("Success");
         msgBox.setText(QString("Course '%1' added successfully!").arg(name));
         msgBox.setIcon(QMessageBox::Information);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
     }
 }
@@ -460,7 +515,7 @@ void ManageCoursesPage::onDeleteCourse(int row) {
         msgBox.setWindowTitle("Deleted");
         msgBox.setText(QString("Course '%1' deleted!").arg(name));
         msgBox.setIcon(QMessageBox::Information);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
     }
 }
@@ -488,6 +543,11 @@ void ManageCoursesPage::refreshTable() {
     // Set number of rows to match number of courses
     ui->coursetable->setRowCount(courses.size());
 
+    // Set row height to accommodate buttons (compact design)
+    for (int row = 0; row < courses.size(); ++row) {
+        ui->coursetable->setRowHeight(row, 40);
+    }
+
     /**
      * Main Loop: Process Each Course
      * Iterates through all courses and creates a table row for each
@@ -513,28 +573,30 @@ void ManageCoursesPage::refreshTable() {
 
         // Create horizontal layout to center the checkbox
         QHBoxLayout *checkBoxLayout = new QHBoxLayout(checkBoxWidget);
+        checkBoxLayout->setContentsMargins(0, 0, 0, 0);  // Remove margins for full coverage
 
         // Create the actual checkbox
         QCheckBox *checkBox = new QCheckBox();
 
-        // Style the checkbox with CSS-like syntax
+        // Style the checkbox with blue design
         checkBox->setStyleSheet(
             "QCheckBox::indicator {"
-            "width: 18px;"                      // Checkbox size
-            "height: 18px;"
-            "border: 2px solid #999;"           // Border color
-            "border-radius: 3px;"               // Rounded corners
+            "width: 20px;"
+            "height: 20px;"
+            "border: 2px solid #3498db;"        // Blue border
+            "border-radius: 4px;"
             "background-color: white;"
             "}"
-            "QCheckBox::indicator:checked {"
-            "background-color: black;"          // Checked state
-            "border: 2px solid black;"
+            "QCheckBox::indicator:hover {"
+            "border: 2px solid #2980b9;"        // Darker blue on hover
+            "background-color: #ecf0f1;"
             "}"
-            "QCheckBox::indicator:checked::after {"
-            "content: '✓';"                     // Checkmark symbol
-            "color: white;"
-            "font-size: 14px;"
-            "font-weight: bold;"
+            "QCheckBox::indicator:checked {"
+            "background-color: #3498db;"        // Blue background
+            "border: 2px solid #2980b9;"
+            "}"
+            "QCheckBox::indicator:checked:hover {"
+            "background-color: #2980b9;"        // Darker blue on hover
             "}"
             );
 
@@ -601,32 +663,42 @@ void ManageCoursesPage::refreshTable() {
 
         // Create horizontal layout to hold both buttons side by side
         QHBoxLayout *actionsLayout = new QHBoxLayout(actionsWidget);
-        actionsLayout->setContentsMargins(2, 2, 2, 2);  // Small padding
+        actionsLayout->setContentsMargins(5, 0, 5, 0);  // Remove top/bottom margins for full coverage
         actionsLayout->setSpacing(5);  // Space between buttons
+        actionsLayout->setAlignment(Qt::AlignCenter);  // Center align buttons
 
         /**
          * Edit Button Creation and Configuration
          */
-        QPushButton *editBtn = new QPushButton("Edit");
+        QPushButton *editBtn = new QPushButton("✏️ Edit");
 
-        // Start disabled (only enabled when checkbox is checked)
+        // Start disabled - only enabled when checkbox is checked
         editBtn->setEnabled(false);
 
-        // Style for both normal and disabled states
+        // Blue color scheme - compact design like in the screenshot
         editBtn->setStyleSheet(
             "QPushButton {"
-            "background-color: white;"         // Normal state: white background
-            "color: #3498db;"                  // Blue text
-            "border: 1px solid #3498db;"       // Blue border
-            "border-radius: 3px;"              // Rounded corners
-            "padding: 5px;"
-            "font-size: 9px;"
-            "min-width: 50px;"
+            "background-color: #3498db;"       // Blue background
+            "color: white;"
+            "border: none;"
+            "border-radius: 4px;"              // Smaller rounded corners
+            "padding: 4px 8px;"                // Compact padding
+            "font-size: 11px;"                 // Smaller font
+            "font-weight: 600;"
+            "min-width: 55px;"                 // Compact width
+            "min-height: 26px;"                // Compact height
+            "max-height: 26px;"                // Fixed compact height
             "}"
             "QPushButton:disabled {"
-            "background-color: #f5f5f5;"       // Disabled state: gray
-            "color: #ccc;"
-            "border: 1px solid #ccc;"
+            "background-color: #3498db;"       // Keep blue when disabled
+            "color: white;"
+            "opacity: 0.6;"                    // Semi-transparent to show disabled
+            "}"
+            "QPushButton:hover:enabled {"
+            "background-color: #2980b9;"       // Darker blue on hover
+            "}"
+            "QPushButton:pressed {"
+            "background-color: #21618c;"       // Even darker when pressed
             "}"
             );
 
@@ -634,95 +706,106 @@ void ManageCoursesPage::refreshTable() {
          * Edit Button Click Handler (Lambda Function)
          *
          * Lambda syntax: [captures](parameters) { code }
-         * - [editBtn, this, row]: Capture these variables by value
-         * - editBtn: Needed to change button style
+         * - [this, row]: Capture these variables by value
          * - this: Needed to call onEditCourse()
          * - row: Needed to know which course to edit
-         *
-         * This lambda changes button color and calls the edit function
          */
-        connect(editBtn, &QPushButton::clicked, this, [editBtn, this, row]() {
-            // Change button color to green when clicked
-            editBtn->setStyleSheet(
-                "QPushButton {"
-                "background-color: #27ae60;"   // Green background
-                "color: white;"                // White text
-                "border: 1px solid #27ae60;"
-                "border-radius: 3px;"
-                "padding: 5px;"
-                "font-size: 9px;"
-                "min-width: 50px;"
-                "}"
-            );
+        connect(editBtn, &QPushButton::clicked, this, [this, row]() {
             // Call the edit function
             onEditCourse(row);
         });
 
         /**
          * Delete Button Creation and Configuration
-         * Similar to Edit button but with red color scheme
+         * Red color scheme - disabled until checkbox is checked
          */
-        QPushButton *deleteBtn = new QPushButton("Delete");
+        QPushButton *deleteBtn = new QPushButton("🗑️ Delete");
 
-        // Start disabled (only enabled when checkbox is checked)
+        // Start disabled - only enabled when checkbox is checked
         deleteBtn->setEnabled(false);
 
-        // Style for both normal and disabled states
+        // Red color scheme - compact design like in the screenshot
         deleteBtn->setStyleSheet(
             "QPushButton {"
-            "background-color: white;"         // Normal state: white background
-            "color: #e74c3c;"                  // Red text
-            "border: 1px solid #e74c3c;"       // Red border
-            "border-radius: 3px;"
-            "padding: 5px;"
-            "font-size: 9px;"
-            "min-width: 50px;"
+            "background-color: #e74c3c;"       // Red background
+            "color: white;"
+            "border: none;"
+            "border-radius: 4px;"              // Smaller rounded corners to match edit button
+            "padding: 4px 8px;"                // Compact padding
+            "font-size: 11px;"                 // Smaller font
+            "font-weight: 600;"
+            "min-width: 55px;"                 // Compact width
+            "min-height: 26px;"                // Compact height
+            "max-height: 26px;"                // Fixed compact height
             "}"
             "QPushButton:disabled {"
-            "background-color: #f5f5f5;"       // Disabled state: gray
-            "color: #ccc;"
-            "border: 1px solid #ccc;"
+            "background-color: #e74c3c;"       // Keep red when disabled
+            "color: white;"
+            "opacity: 0.6;"                    // Semi-transparent to show disabled
+            "}"
+            "QPushButton:hover:enabled {"
+            "background-color: #c0392b;"       // Darker red on hover
+            "}"
+            "QPushButton:pressed {"
+            "background-color: #a93226;"       // Even darker when pressed
             "}"
             );
 
         /**
          * Delete Button Click Handler (Lambda Function)
-         * Changes button to solid red and calls delete function
+         * Calls delete function with confirmation
          */
-        connect(deleteBtn, &QPushButton::clicked, this, [deleteBtn, this, row]() {
-            // Change button color to solid red when clicked
-            deleteBtn->setStyleSheet(
-                "QPushButton {"
-                "background-color: #e74c3c;"   // Red background
-                "color: white;"                // White text
-                "border: 1px solid #e74c3c;"
-                "border-radius: 3px;"
-                "padding: 5px;"
-                "font-size: 9px;"
-                "min-width: 50px;"
-                "}"
-            );
-            // Call the delete function
-            onDeleteCourse(row);
+        connect(deleteBtn, &QPushButton::clicked, this, [this, row]() {
+            // Ask for confirmation before deleting
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle("Confirm Delete");
+            msgBox.setText(QString("Are you sure you want to delete '%1'?")
+                          .arg(courses[row].name));
+            msgBox.setIcon(QMessageBox::Question);
+            msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+            msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
+
+            if (msgBox.exec() == QMessageBox::Yes) {
+                // Call the delete function
+                onDeleteCourse(row);
+            }
         });
 
         /**
-         * Checkbox-Button Connection (Important Feature)
+         * Checkbox Connection - Enable/Disable Buttons and Highlight Row
          *
-         * This connects the checkbox to the Edit and Delete buttons.
-         * When checkbox is checked, buttons are enabled.
-         * When unchecked, buttons are disabled.
+         * When checkbox is checked:
+         * 1. Enable Edit and Delete buttons
+         * 2. Highlight the entire row with gray background
          *
-         * This prevents accidental edits/deletes and requires
-         * explicit selection before performing actions.
-         *
-         * Lambda captures:
-         * - editBtn, deleteBtn: The buttons to enable/disable
-         * - checked: Boolean parameter from toggled signal
+         * Multiple rows can be selected simultaneously
          */
-        connect(checkBox, &QCheckBox::toggled, this, [editBtn, deleteBtn](bool checked) {
+        connect(checkBox, &QCheckBox::toggled, this, [this, row, editBtn, deleteBtn, checkBoxWidget, actionsWidget](bool checked) {
+            // Enable or disable the buttons
             editBtn->setEnabled(checked);
             deleteBtn->setEnabled(checked);
+
+            // Change background color for the entire row
+            // Light gray (#E8E8E8) when checked, white when unchecked
+            QColor bgColor = checked ? QColor(232, 232, 232) : QColor(255, 255, 255);
+            QString bgColorStr = checked ? "#E8E8E8" : "transparent";
+
+            // Change background for checkbox widget (column 0)
+            if (checkBoxWidget) {
+                checkBoxWidget->setStyleSheet(QString("background-color: %1;").arg(bgColorStr));
+            }
+
+            // Change background for all data cells (columns 1-4)
+            for (int col = 1; col < 5; ++col) {
+                if (ui->coursetable->item(row, col)) {
+                    ui->coursetable->item(row, col)->setBackground(QBrush(bgColor));
+                }
+            }
+
+            // Change background for actions widget (column 5)
+            if (actionsWidget) {
+                actionsWidget->setStyleSheet(QString("background-color: %1;").arg(bgColorStr));
+            }
         });
 
         // Add both buttons to the layout
@@ -826,11 +909,7 @@ void ManageCoursesPage::onEditCourse(int row) {
  * Generate Timetable Handler (Slot Function)
  *
  * Generates a timetable from the added courses.
- * Currently shows a placeholder message.
- * In a full implementation, this would:
- * - Organize courses by day and time
- * - Create a visual schedule
- * - Handle conflicts and overlaps
+ * Shows loading dialog and then displays timetable window.
  */
 void ManageCoursesPage::onGenerateTimetable() {
     // Check if there are any courses to generate timetable from
@@ -839,29 +918,50 @@ void ManageCoursesPage::onGenerateTimetable() {
         msgBox.setWindowTitle("No Courses");
         msgBox.setText("Please add at least one course first!");
         msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
         return;
     }
 
-    // Placeholder: Show success message
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Generate Timetable");
-    msgBox.setText(QString("Timetable generated for %1 course(s)!").arg(courses.size()));
-    msgBox.setIcon(QMessageBox::Information);
-    msgBox.setStyleSheet("QLabel{font-size: 9px;} QPushButton{font-size: 9px;}");
-    msgBox.exec();
+    // Create and show loading dialog
+    if (!loadingDialog) {
+        loadingDialog = new LoadingDialog(this);
+        connect(loadingDialog, &LoadingDialog::loadingComplete,
+                this, &ManageCoursesPage::onLoadingComplete);
+    }
+
+    loadingDialog->startLoading();
+    loadingDialog->exec();
+}
+
+/**
+ * Loading Complete Handler
+ *
+ * Called when the loading dialog finishes.
+ * Opens the timetable window and populates it with course data.
+ */
+void ManageCoursesPage::onLoadingComplete() {
+    // Always create a fresh timetable window to ensure data is up-to-date
+    // Delete old window if it exists
+    if (timetableWindow) {
+        delete timetableWindow;
+        timetableWindow = nullptr;
+    }
+
+    // Create new timetable window
+    timetableWindow = new TIMETABLE(this);
+
+    // Set the course data and show the timetable
+    timetableWindow->setCoursesData(courses);
+    timetableWindow->show();
+    timetableWindow->raise();
+    timetableWindow->activateWindow();
 }
 
 /**
  * View Timetable Handler (Slot Function)
  *
  * Displays the generated timetable.
- * Currently shows a placeholder message.
- * In a full implementation, this would:
- * - Open a new window or dialog
- * - Display the timetable in a calendar/grid format
- * - Allow printing or exporting
  */
 void ManageCoursesPage::onViewTimetable() {
     // Check if there are any courses to view
@@ -870,16 +970,26 @@ void ManageCoursesPage::onViewTimetable() {
         msgBox.setWindowTitle("No Courses");
         msgBox.setText("Please add courses first!");
         msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
+        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
         msgBox.exec();
         return;
     }
 
-    // Placeholder: Show viewing message
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("View Timetable");
-    msgBox.setText("Viewing generated timetables...");
-    msgBox.setIcon(QMessageBox::Information);
-    msgBox.setStyleSheet("QLabel{font-size: 9px;} QPushButton{font-size: 9px;}");
-    msgBox.exec();
+    // Always create a fresh timetable window to ensure data is up-to-date
+    // Delete old window if it exists
+    if (timetableWindow) {
+        delete timetableWindow;
+        timetableWindow = nullptr;
+    }
+
+    // Create new timetable window
+    timetableWindow = new TIMETABLE(this);
+
+    // Set the course data and show the timetable
+    timetableWindow->setCoursesData(courses);
+    timetableWindow->show();
+    timetableWindow->raise();
+    timetableWindow->activateWindow();
 }
+
+
