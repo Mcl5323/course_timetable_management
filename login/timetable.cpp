@@ -24,13 +24,9 @@ TIMETABLE::TIMETABLE(QWidget *parent)
     // Setup button connections
     connect(ui->saveAsBtn, &QPushButton::clicked, this, &TIMETABLE::onSaveAs);
     connect(ui->backBtn, &QPushButton::clicked, this, &TIMETABLE::onBack);
-    connect(ui->nextPageBtn, &QPushButton::clicked, this, &TIMETABLE::onTogglePage);
+    connect(ui->prevPageBtn, &QPushButton::clicked, this, &TIMETABLE::onPrevPage);
+    connect(ui->nextPageBtn, &QPushButton::clicked, this, &TIMETABLE::onNextPage);
     connect(ui->deleteBtn, &QPushButton::clicked, this, &TIMETABLE::onDelete);
-
-    // Hide the previous page button (we'll use only next button to toggle)
-    if (ui->prevPageBtn) {
-        ui->prevPageBtn->hide();
-    }
 
     // Initialize timetable table
     if (ui->timetableTable) {
@@ -61,7 +57,7 @@ TIMETABLE::~TIMETABLE()
 }
 
 // This gets called when user clicks "Generate Timetable" button
-// Main job: take the courses and figure out all possible non-conflicting schedules
+// Main job: take the courses and display them on the timetable
 void TIMETABLE::setCoursesData(const QVector<Course> &courses)
 {
     coursesData = courses;  // store the courses locally
@@ -358,15 +354,6 @@ void TIMETABLE::onTogglePage()
 
     displayCurrentCombination();
     updatePageLabel();
-
-    // Update button text to show what's next
-    if (ui->nextPageBtn) {
-        int nextPage = currentCombinationIndex + 1;
-        if (nextPage >= allCombinations.size()) {
-            nextPage = 0;
-        }
-        ui->nextPageBtn->setText(QString("Next (%1/%2)").arg(nextPage + 1).arg(allCombinations.size()));
-    }
 }
 
 void TIMETABLE::onDelete()
@@ -401,18 +388,61 @@ void TIMETABLE::onDelete()
 }
 
 // Main function that generates all valid timetable combinations
-// For example: if TDS1123 has 3 time slots and MPU3113 has 2 slots,
-// this will create 6 possible timetables (3 x 2) and filter out any with conflicts
+// This will show all courses added by the user
+// If there are courses with same name but different times, it will generate
+// multiple combinations (one for each possible selection)
 void TIMETABLE::generateAllCombinations()
 {
-    // first, group courses by their name
-    // so all TDS1123 options go together, all MPU3113 options go together, etc
+    // Group courses by their exact name and other details to identify unique vs duplicate entries
     QMap<QString, QVector<Course>> courseGroups;
+
     for (const Course &course : coursesData) {
-        courseGroups[course.name].append(course);
+        // Create a unique key based on name, day, time, and classroom
+        QString key = QString("%1|%2|%3-%4|%5")
+                          .arg(course.name)
+                          .arg(course.day)
+                          .arg(course.startTime)
+                          .arg(course.endTime)
+                          .arg(course.classroom);
+
+        // Check if this exact course already exists in any group
+        bool found = false;
+        for (auto &group : courseGroups[course.name]) {
+            if (group.day == course.day &&
+                group.startTime == course.startTime &&
+                group.endTime == course.endTime &&
+                group.classroom == course.classroom) {
+                found = true;
+                break;
+            }
+        }
+
+        // Only add if not duplicate
+        if (!found) {
+            courseGroups[course.name].append(course);
+        }
     }
 
-    // convert the map to a list so we can work with it easier
+    // Check if all courses have unique names or if there are multiple options
+    bool hasMultipleOptions = false;
+    for (auto it = courseGroups.begin(); it != courseGroups.end(); ++it) {
+        if (it.value().size() > 1) {
+            hasMultipleOptions = true;
+            break;
+        }
+    }
+
+    // If no multiple options, just create one combination with all unique courses
+    if (!hasMultipleOptions) {
+        QVector<Course> uniqueCourses;
+        for (auto it = courseGroups.begin(); it != courseGroups.end(); ++it) {
+            uniqueCourses.append(it.value());
+        }
+        allCombinations.append(uniqueCourses);
+        return;
+    }
+
+    // Otherwise, generate combinations for courses with multiple time options
     QList<QVector<Course>> groups;
     for (auto it = courseGroups.begin(); it != courseGroups.end(); ++it) {
         groups.append(it.value());
@@ -420,12 +450,9 @@ void TIMETABLE::generateAllCombinations()
 
     if (groups.isEmpty()) return;
 
-    // use recursion to try all combinations
-    // starts with empty combination and builds from there
+    // use recursion to try all combinations (including conflicting ones)
     QVector<Course> currentCombination;
     generateCombinationsRecursive(groups, 0, currentCombination);
-
-    // no artificial limit - will generate as many as needed
 }
 
 // This is where the magic happens - recursively builds all combinations
@@ -436,10 +463,9 @@ void TIMETABLE::generateCombinationsRecursive(const QList<QVector<Course>> &grou
 {
     // done! we've picked one option for each course
     if (groupIndex >= groups.size()) {
-        // only save it if there's no time conflicts
-        if (!hasConflict(currentCombination)) {
-            allCombinations.append(currentCombination);
-        }
+        // Save all combinations, even if they have conflicts
+        // The user wants to see all possible timetables
+        allCombinations.append(currentCombination);
         return;
     }
 
@@ -515,6 +541,17 @@ void TIMETABLE::updatePageLabel()
                                          .arg(allCombinations.size()));
         }
 
+        // Show/hide navigation buttons based on number of pages
+        if (allCombinations.size() > 1) {
+            if (ui->prevPageBtn) ui->prevPageBtn->show();
+            if (ui->nextPageBtn) ui->nextPageBtn->show();
+            if (ui->pageNumberLabel) ui->pageNumberLabel->show();
+        } else {
+            if (ui->prevPageBtn) ui->prevPageBtn->hide();
+            if (ui->nextPageBtn) ui->nextPageBtn->hide();
+            if (ui->pageNumberLabel) ui->pageNumberLabel->hide();
+        }
+
         // Update window title
         this->setWindowTitle(QString("View Timetable - Page %1 of %2")
                              .arg(currentCombinationIndex + 1)
@@ -523,6 +560,9 @@ void TIMETABLE::updatePageLabel()
         if (ui->pageNumberLabel) {
             ui->pageNumberLabel->setText("1/1");
         }
+        if (ui->prevPageBtn) ui->prevPageBtn->hide();
+        if (ui->nextPageBtn) ui->nextPageBtn->hide();
+        if (ui->pageNumberLabel) ui->pageNumberLabel->hide();
         this->setWindowTitle("View Timetable - No valid combinations");
     }
 }

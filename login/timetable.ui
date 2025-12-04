@@ -179,7 +179,7 @@ QPushButton:pressed {
      <x>20</x>
      <y>170</y>
      <width>1541</width>
-     <height>420</height>
+     <height>451</height>
     </rect>
    </property>
    <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -345,9 +345,9 @@ QHeaderView::section {
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>590</y>
+     <y>630</y>
      <width>1541</width>
-     <height>141</height>
+     <height>131</height>
     </rect>
    </property>
    <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -423,7 +423,7 @@ border-bottom: 1px solid #E0E0E0;</string>
       <widget class="QPushButton" name="backBtn">
        <property name="geometry">
         <rect>
-         <x>1220</x>
+         <x>1170</x>
          <y>50</y>
          <width>141</width>
          <height>51</height>
@@ -448,7 +448,7 @@ QPushButton:hover {
       <widget class="QPushButton" name="deleteBtn">
        <property name="geometry">
         <rect>
-         <x>1380</x>
+         <x>1340</x>
          <y>50</y>
          <width>141</width>
          <height>51</height>
