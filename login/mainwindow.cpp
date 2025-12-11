@@ -2,7 +2,7 @@
  * MainWindow Implementation File
  *
  * This file contains the implementation of the MainWindow class,
- * which manages the login functionality of the application.
+ * which manages the login functionality using a manual hash table.
  */
 
 #include "mainwindow.h"
@@ -12,22 +12,105 @@
 #include <QMessageBox>
 
 /**
+ * Hash Function
+ *
+ * Converts a QString key into a bucket index.
+ * Uses simple character sum modulo capacity.
+ *
+ * @param key: The student ID to hash
+ * @return: Bucket index (0 to capacity-1)
+ */
+int MainWindow::hashFunction(const QString& key)
+{
+    int hash = 0;
+
+    // Sum up all character values
+    for (int i = 0; i < key.length(); i++) {
+        hash += key[i].unicode();  // Get Unicode value of character
+    }
+
+    // Use modulo to fit within bucket array size
+    return hash % registeredUsers->capacity;
+}
+
+/**
+ * Add User to Hash Table
+ *
+ * Inserts a new user into the hash table.
+ * Checks for duplicates before insertion.
+ *
+ * @param studentID: The student ID to add
+ * @param password: The password for this student
+ * @return: true if added successfully, false if duplicate exists
+ */
+bool MainWindow::addUser(const QString& studentID, const QString& password)
+{
+    // Calculate which bucket this user belongs to
+    int index = hashFunction(studentID);
+
+    // Get the head of the linked list at this bucket
+    UserNode* current = registeredUsers->buckets[index];
+
+    // Traverse the linked list to check for duplicates
+    while (current != nullptr) {
+        if (current->studentID == studentID) {
+            return false;  // Duplicate found
+        }
+        current = current->next;
+    }
+
+    // No duplicate found - create new node
+    UserNode* newNode = new UserNode(studentID, password);
+
+    // Insert at the beginning of the linked list (easier than end)
+    newNode->next = registeredUsers->buckets[index];
+    registeredUsers->buckets[index] = newNode;
+
+    return true;  // Successfully added
+}
+
+/**
+ * Validate Login Credentials
+ *
+ * Checks if the provided credentials match a registered user.
+ * Uses hash function to find the correct bucket, then searches the linked list.
+ *
+ * @param studentID: The student ID to check
+ * @param password: The password to verify
+ * @return: true if credentials are valid, false otherwise
+ */
+bool MainWindow::validateLogin(const QString &studentID, const QString &password)
+{
+    // Use hash function to find the correct bucket
+    int index = hashFunction(studentID);
+
+    // Get the head of the linked list at this bucket
+    UserNode* current = registeredUsers->buckets[index];
+
+    // Traverse the linked list in this bucket
+    while (current != nullptr) {
+        // Check if both student ID and password match
+        if (current->studentID == studentID && current->password == password) {
+            return true;  // Match found - login successful
+        }
+        current = current->next;
+    }
+
+    return false;  // No match found - login failed
+}
+
+/**
  * MainWindow Constructor
  *
  * Initializes the login window and sets up the user interface.
- * This is called when the application starts.
- *
- * Initialization list explanation:
- * - QMainWindow(parent): Calls parent class constructor
- * - ui(new Ui::MainWindow): Creates UI components from Qt Designer
- * - signupWindow(nullptr): Initially no signup window exists
- * - manageCoursesPage(nullptr): Initially no course page exists
+ * Creates the hash table and adds default account.
  */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , signupWindow(nullptr)
     , manageCoursesPage(nullptr)
+    , registeredUsers(nullptr)
 {
     // Set up the user interface defined in Qt Designer (.ui file)
     ui->setupUi(this);
@@ -35,33 +118,28 @@ MainWindow::MainWindow(QWidget *parent)
     // Set the window title that appears in the title bar
     this->setWindowTitle("Login");
 
-    // Initialize the user database with a default test account
-    // This allows immediate testing without registration
-    // Key: Student ID, Value: Password
-    registeredUsers["12345"] = "password123";
+    // Initialize the user registry with capacity 10
+    registeredUsers = new UserRegistry(10);
+
+    // Add default test account
+    addUser("12345", "password123");
 
     /**
      * Connect button signals to slots (Signal-Slot Mechanism)
-     *
-     * Qt's signal-slot mechanism is a way to handle events:
-     * - Signal: An event that is emitted (e.g., button clicked)
-     * - Slot: A function that responds to the signal
-     *
-     * Syntax: connect(sender, SIGNAL(signal), receiver, SLOT(slot))
      */
 
-    // When Login button is clicked, call on_submit_clicked() to validate credentials
+    // When Login button is clicked, call on_submit_clicked()
     connect(ui->pushButton_Login, SIGNAL(clicked()), this, SLOT(on_submit_clicked()));
 
-    // When SignUp button is clicked, call on_toggle_mode_clicked() to open signup window
+    // When SignUp button is clicked, call on_toggle_mode_clicked()
     connect(ui->pushButton_SignUp, SIGNAL(clicked()), this, SLOT(on_toggle_mode_clicked()));
 }
 
 /**
  * MainWindow Destructor
  *
- * Cleans up dynamically allocated memory to prevent memory leaks.
- * This is called automatically when the window is closed.
+ * Cleans up dynamically allocated memory.
+ * The UserRegistry destructor will automatically free all nodes.
  */
 MainWindow::~MainWindow()
 {
@@ -77,19 +155,18 @@ MainWindow::~MainWindow()
     if (manageCoursesPage) {
         delete manageCoursesPage;
     }
+
+    // Delete the hash table (this will free all nodes)
+    if (registeredUsers) {
+        delete registeredUsers;
+    }
 }
 
 /**
  * Login Submit Handler (Slot Function)
  *
  * This function is called when the Login button is clicked.
- * It validates user input and authenticates credentials.
- *
- * Process Flow:
- * 1. Retrieve input from text fields
- * 2. Validate that fields are not empty
- * 3. Check credentials against registered users
- * 4. Show appropriate message and navigate if successful
+ * Validates input and authenticates credentials using the hash table.
  */
 void MainWindow::on_submit_clicked()
 {
@@ -99,25 +176,23 @@ void MainWindow::on_submit_clicked()
 
     /**
      * Input Validation - Check for empty fields
-     * Important: Always validate user input before processing
      */
     if (studentID.isEmpty() || password.isEmpty()) {
-        // Create and configure a warning message box
         QMessageBox msgBox(this);
         msgBox.setWindowTitle("Input Error");
         msgBox.setText("Please fill in all fields!");
         msgBox.setIcon(QMessageBox::Warning);
         msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
-        msgBox.exec();  // Display the message box (blocks until user closes it)
-        return;  // Exit the function early
+        msgBox.exec();
+        return;
     }
 
     /**
      * Authentication Process
-     * Uses validateLogin() to check if credentials match a registered user
+     * Uses validateLogin() to check credentials against hash table
      */
     if (validateLogin(studentID, password)) {
-        // Login successful - show welcome message
+        // Login successful
         QMessageBox msgBox(this);
         msgBox.setWindowTitle("Login Successful");
         msgBox.setText("Welcome " + studentID + "!");
@@ -128,7 +203,7 @@ void MainWindow::on_submit_clicked()
         // Navigate to the course management page
         switchToManageCoursesPage();
     } else {
-        // Login failed - show error message
+        // Login failed
         QMessageBox msgBox(this);
         msgBox.setWindowTitle("Login Failed");
         msgBox.setText("Invalid Student ID or Password!");
@@ -136,7 +211,7 @@ void MainWindow::on_submit_clicked()
         msgBox.setStyleSheet("QLabel{font-size: 11px;} QPushButton{font-size: 11px;}");
         msgBox.exec();
 
-        // Clear password field for security (but keep student ID for convenience)
+        // Clear password field for security
         ui->lineEdit_Password->clear();
     }
 }
@@ -145,76 +220,43 @@ void MainWindow::on_submit_clicked()
  * Signup Button Handler (Slot Function)
  *
  * Opens the signup window dialog for new user registration.
- * This function uses lazy initialization - only creates the window once.
  */
 void MainWindow::on_toggle_mode_clicked()
 {
     /**
      * Lazy Initialization Pattern
-     * Only create the signup window the first time it's needed
-     * This saves memory if the user never clicks signup
      */
     if (signupWindow == nullptr) {
-        // Create the signup window with this window as parent
         signupWindow = new SignupWindow(this);
 
         /**
          * Connect Signal from SignupWindow to Slot in MainWindow
-         *
-         * This establishes communication between windows:
-         * - When SignupWindow emits userRegistered signal (new user created)
-         * - MainWindow's on_userRegistered slot is called to save the user
-         *
-         * This is an example of inter-window communication using signals/slots
          */
         connect(signupWindow, SIGNAL(userRegistered(const QString&, const QString&)),
                 this, SLOT(on_userRegistered(const QString&, const QString&)));
     }
 
-    // Open the signup window as a modal dialog (blocks interaction with main window)
+    // Open the signup window as a modal dialog
     signupWindow->exec();
-}
-
-/**
- * Validate Login Credentials
- *
- * Checks if the provided credentials match a registered user.
- *
- * @param studentID: The student ID to check
- * @param password: The password to verify
- * @return true if credentials are valid, false otherwise
- *
- * How it works:
- * 1. Check if studentID exists in the QMap (contains())
- * 2. If exists, check if the stored password matches the provided password
- * 3. Both conditions must be true for successful login
- */
-bool MainWindow::validateLogin(const QString &studentID, const QString &password)
-{
-    return registeredUsers.contains(studentID) && registeredUsers[studentID] == password;
 }
 
 /**
  * User Registration Handler (Slot Function)
  *
  * This slot is called when SignupWindow emits the userRegistered signal.
- * It receives the new user's credentials and adds them to the database.
+ * Uses addUser() to insert into the hash table.
  *
  * @param studentID: New user's student ID
  * @param password: New user's password
- *
- * Process:
- * 1. Check if student ID already exists (prevent duplicates)
- * 2. If new, add to registeredUsers map
- * 3. Show appropriate feedback message
  */
 void MainWindow::on_userRegistered(const QString &studentID, const QString &password)
 {
     /**
-     * Duplicate Check
-     * Prevent the same student ID from being registered twice
+     * Use addUser() to insert into hash table
+     * addUser() returns false if duplicate is found in the bucket
      */
-    if (registeredUsers.contains(studentID)) {
+    if (!addUser(studentID, password)) {
+        // Duplicate found
         QMessageBox msgBox(this);
         msgBox.setWindowTitle("Registration Failed");
         msgBox.setText("Student ID already exists!");
@@ -224,13 +266,7 @@ void MainWindow::on_userRegistered(const QString &studentID, const QString &pass
         return;
     }
 
-    /**
-     * Add New User to Database
-     * QMap automatically creates a new entry with the given key-value pair
-     */
-    registeredUsers[studentID] = password;
-
-    // Show success message
+    // Successfully inserted new node
     QMessageBox msgBox(this);
     msgBox.setWindowTitle("Registration Successful");
     msgBox.setText("Account created! You can now login.");
@@ -244,8 +280,6 @@ void MainWindow::on_userRegistered(const QString &studentID, const QString &pass
  *
  * Called after successful login. Hides the login window and
  * displays the course management interface.
- *
- * Uses lazy initialization like the signup window.
  */
 void MainWindow::switchToManageCoursesPage()
 {
@@ -272,7 +306,7 @@ void MainWindow::switchToLoginPage()
         manageCoursesPage->hide();
     }
 
-    // Clear input fields for security (prevent password from remaining visible)
+    // Clear input fields for security
     ui->lineEdit_StudentID->clear();
     ui->lineEdit_Password->clear();
 
