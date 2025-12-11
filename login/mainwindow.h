@@ -2,7 +2,6 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QMap>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -12,6 +11,51 @@ QT_END_NAMESPACE
 
 class SignupWindow;
 class ManageCoursesPage;
+
+/**
+ * User Node Structure
+ * Represents a single user account in the linked list
+ */
+struct UserNode {
+    QString studentID;
+    QString password;
+    UserNode* next;
+
+    // Constructor for easy node creation
+    UserNode(const QString& id, const QString& pass)
+        : studentID(id), password(pass), next(nullptr) {}
+};
+
+/**
+ * UserRegistry Structure
+ * Manual hash table implementation using chaining for collision resolution
+ */
+struct UserRegistry {
+    UserNode** buckets;  // Array of pointers to linked lists
+    int capacity;        // Size of the hash table
+
+    // Constructor
+    UserRegistry(int cap = 10) : capacity(cap) {
+        buckets = new UserNode*[capacity];
+        // Initialize all buckets to nullptr
+        for (int i = 0; i < capacity; i++) {
+            buckets[i] = nullptr;
+        }
+    }
+
+    // Destructor - Free all nodes
+    ~UserRegistry() {
+        for (int i = 0; i < capacity; i++) {
+            UserNode* current = buckets[i];
+            while (current != nullptr) {
+                UserNode* temp = current;
+                current = current->next;
+                delete temp;
+            }
+        }
+        delete[] buckets;
+    }
+};
 
 class MainWindow : public QMainWindow
 {
@@ -28,13 +72,20 @@ private slots:
     void on_userRegistered(const QString &studentID, const QString &password);
 
 private:
-    bool validateLogin(const QString &studentID, const QString &password);
-    void switchToManageCoursesPage();
 
     Ui::MainWindow *ui;
     SignupWindow *signupWindow;
     ManageCoursesPage *manageCoursesPage;
-    QMap<QString, QString> registeredUsers;
+
+    // Manual hash table for user storage
+    UserRegistry* registeredUsers;
+
+    // Hash table helper functions
+    int hashFunction(const QString& key);
+    bool addUser(const QString& studentID, const QString& password);
+    bool validateLogin(const QString &studentID, const QString &password);
+
+    void switchToManageCoursesPage();
 };
 
 #endif // MAINWINDOW_H
