@@ -54,9 +54,10 @@ class ManageCoursesPage : public QDialog {
 public:
     /**
      * Constructor - initializes the course management interface
+     * @param currentUser: Currently logged-in user's student ID
      * @param parent: Parent window (MainWindow)
      */
-    explicit ManageCoursesPage(QWidget *parent = nullptr);
+    explicit ManageCoursesPage(const QString &currentUser, QWidget *parent = nullptr);
 
     /**
      * Destructor - cleans up resources
@@ -102,6 +103,24 @@ private slots:
      */
     void onViewTimetable();
 
+    /**
+     * Search button handler
+     * Searches for courses matching the search text
+     */
+    void onSearchCourse();
+
+    /**
+     * Clear search button handler
+     * Shows all courses again
+     */
+    void onClearSearch();
+
+    /**
+     * Sort button handler
+     * Sorts courses based on selected criteria
+     */
+    void onSortCourses(int index);
+
 private:
     // Private helper methods
 
@@ -129,6 +148,27 @@ private:
      */
     int timeToInt(const QString &time);
 
+    /**
+     * File handling functions [NOT from Qt UI]
+     * Purpose: Save and load course data for persistence
+     */
+    void saveCoursesToFile();     // Save all courses to courses.txt
+    void loadCoursesFromFile();   // Load courses from courses.txt
+
+    /**
+     * Search Algorithm [NOT from Qt UI]
+     * Purpose: Linear search to find courses matching search criteria
+     * Returns: List of indices of matching courses
+     */
+    QVector<int> linearSearchCourses(const QString &searchText);
+
+    /**
+     * Sort Algorithm [NOT from Qt UI]
+     * Purpose: Bubble sort to sort courses by different criteria
+     * Parameters: sortBy - 0=Name, 1=Day, 2=Time, 3=Classroom
+     */
+    void bubbleSortCourses(int sortBy);
+
     // Private member variables
 
     Ui::ManageCoursesPage *ui;  // Pointer to UI components
@@ -138,6 +178,21 @@ private:
      * Each element is a Course struct containing course details
      */
     QVector<Course> courses;
+
+    /**
+     * Search and Sort UI Components [NOT from Qt Designer]
+     * These are manually created in code, not from .ui file
+     */
+    class QLineEdit *searchInput;      // Search text input
+    class QPushButton *searchBtn;      // Search button
+    class QPushButton *clearSearchBtn; // Clear search button
+    class QComboBox *sortCombo;        // Sort dropdown menu
+
+    /**
+     * Current User's Student ID
+     * Used to save/load user-specific course data
+     */
+    QString currentUser;
 
     /**
      * Edit Mode Tracking Variable

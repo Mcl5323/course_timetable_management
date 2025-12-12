@@ -1,6 +1,7 @@
 #include "timetable.h"
 #include "ui_timetable.h"
 #include "managecoursespage.h"
+#include "uistyles.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QPainter>
@@ -110,8 +111,8 @@ void TIMETABLE::populateTimetable()
                 .arg(course.endTime)
         );
 
-        mainItem->setBackground(QBrush(defaultColor));
-        mainItem->setForeground(QBrush(QColor("#FFFFFF")));
+        mainItem->setBackground(QBrush(QColor(UIColors::BLUE_DEEP)));
+        mainItem->setForeground(QBrush(QColor(UIColors::TEXT_WHITE)));
         mainItem->setTextAlignment(Qt::AlignCenter | Qt::AlignVCenter);
 
         // Enable word wrapping for this specific item
@@ -281,7 +282,7 @@ void TIMETABLE::onSaveAs()
 
     // Create pixmap with exact table size
     QPixmap pixmap(totalWidth, totalHeight);
-    pixmap.fill(QColor("#0D1B2A"));  // Use table background color
+    pixmap.fill(QColor(UIColors::BACKGROUND_VERY_DARK));
 
     // Render only the table content
     QPainter painter(&pixmap);
@@ -295,19 +296,9 @@ void TIMETABLE::onSaveAs()
 
     // Save the pixmap to file
     if (pixmap.save(fileName)) {
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle("Success");
-        msgBox.setText("Full timetable (Monday to Sunday) saved successfully!");
-        msgBox.setIcon(QMessageBox::Information);
-        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
-        msgBox.exec();
+        UIDialogs::showInfo(this, "Success", "Full timetable (Monday to Sunday) saved successfully!");
     } else {
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle("Error");
-        msgBox.setText("Failed to save timetable!");
-        msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
-        msgBox.exec();
+        UIDialogs::showWarning(this, "Error", "Failed to save timetable!");
     }
 }
 
@@ -359,14 +350,9 @@ void TIMETABLE::onTogglePage()
 void TIMETABLE::onDelete()
 {
     // Confirm before clearing timetable view
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Confirm Clear View");
-    msgBox.setText("Are you sure you want to clear this timetable view?\n\nNote: Your courses in Manage Courses page will not be deleted.");
-    msgBox.setIcon(QMessageBox::Question);
-    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-    msgBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
+    if (UIDialogs::showConfirmation(this, "Confirm Clear View",
+        "Are you sure you want to clear this timetable view?\n\nNote: Your courses in Manage Courses page will not be deleted.")) {
 
-    if (msgBox.exec() == QMessageBox::Yes) {
         // Clear local timetable data only (does not affect ManageCoursesPage)
         coursesData.clear();
         allCombinations.clear();
@@ -375,12 +361,8 @@ void TIMETABLE::onDelete()
         populateTimetable();
         updateStatistics();
 
-        QMessageBox confirmBox(this);
-        confirmBox.setWindowTitle("Success");
-        confirmBox.setText("Timetable view cleared!\n\nYour courses are still saved in Manage Courses page.");
-        confirmBox.setIcon(QMessageBox::Information);
-        confirmBox.setStyleSheet("QMessageBox{background-color: #ffffff;} QLabel{color: #000000; font-size: 11px; background-color: transparent;} QPushButton{background-color: #e0e0e0; color: #000000; font-size: 11px; min-width: 60px; padding: 5px;}");
-        confirmBox.exec();
+        UIDialogs::showInfo(this, "Success",
+            "Timetable view cleared!\n\nYour courses are still saved in Manage Courses page.");
 
         // Close timetable window
         this->close();

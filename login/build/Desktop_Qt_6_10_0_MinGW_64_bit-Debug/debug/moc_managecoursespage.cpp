@@ -45,7 +45,12 @@ template <> constexpr inline auto ManageCoursesPage::qt_create_metaobjectdata<qt
         "row",
         "onEditCourse",
         "onGenerateTimetable",
-        "onViewTimetable"
+        "onLoadingComplete",
+        "onViewTimetable",
+        "onSearchCourse",
+        "onClearSearch",
+        "onSortCourses",
+        "index"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -61,8 +66,18 @@ template <> constexpr inline auto ManageCoursesPage::qt_create_metaobjectdata<qt
         }}),
         // Slot 'onGenerateTimetable'
         QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onViewTimetable'
+        // Slot 'onLoadingComplete'
         QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onViewTimetable'
+        QtMocHelpers::SlotData<void()>(8, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onSearchCourse'
+        QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onClearSearch'
+        QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onSortCourses'
+        QtMocHelpers::SlotData<void(int)>(11, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 12 },
+        }}),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -90,7 +105,11 @@ void ManageCoursesPage::qt_static_metacall(QObject *_o, QMetaObject::Call _c, in
         case 1: _t->onDeleteCourse((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
         case 2: _t->onEditCourse((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
         case 3: _t->onGenerateTimetable(); break;
-        case 4: _t->onViewTimetable(); break;
+        case 4: _t->onLoadingComplete(); break;
+        case 5: _t->onViewTimetable(); break;
+        case 6: _t->onSearchCourse(); break;
+        case 7: _t->onClearSearch(); break;
+        case 8: _t->onSortCourses((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
         default: ;
         }
     }
@@ -115,14 +134,14 @@ int ManageCoursesPage::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 5)
+        if (_id < 9)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 5;
+        _id -= 9;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 5)
+        if (_id < 9)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 5;
+        _id -= 9;
     }
     return _id;
 }

@@ -80,10 +80,17 @@ private:
     // Manual hash table for user storage
     UserRegistry* registeredUsers;
 
+    // Current logged-in user
+    QString currentUser;
+
     // Hash table helper functions
     int hashFunction(const QString& key);
     bool addUser(const QString& studentID, const QString& password);
     bool validateLogin(const QString &studentID, const QString &password);
+
+    // File handling functions [NOT from Qt UI]
+    void saveUsersToFile();     // Save all users to users.txt
+    void loadUsersFromFile();   // Load users from users.txt
 
     void switchToManageCoursesPage();
 };

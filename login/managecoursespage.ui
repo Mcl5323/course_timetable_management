@@ -99,7 +99,7 @@ QLineEdit:focus {
     font-size: 12px;
 }
 
-/* 展开项目 */
+/* Dropdown items */
 QComboBox QAbstractItemView {
     background-color: #1E293B;
     color: #E2E8F0;
@@ -328,7 +328,7 @@ QPushButton:pressed {
     <string notr="true">font: 12pt &quot;Segoe UI&quot;;</string>
    </property>
    <property name="text">
-    <string>Course Name：</string>
+    <string>Course Name:</string>
    </property>
   </widget>
   <widget class="QComboBox" name="startTimeLabel">
@@ -350,7 +350,7 @@ QPushButton:pressed {
     font-size: 12px;
 }
 
-/* 展开项目 */
+/* Dropdown items */
 QComboBox QAbstractItemView {
     background-color: #1E293B;
     color: #E2E8F0;
@@ -383,7 +383,7 @@ QComboBox:focus {
     font-size: 12px;
 }
 
-/* 展开项目 */
+/* Dropdown items */
 QComboBox QAbstractItemView {
     background-color: #1E293B;
     color: #E2E8F0;

@@ -40,50 +40,50 @@ public:
         if (MainWindow->objectName().isEmpty())
             MainWindow->setObjectName("MainWindow");
         MainWindow->setEnabled(true);
-        MainWindow->resize(1644, 773);
-        MainWindow->setStyleSheet(QString::fromUtf8("font: 600 20pt \"Segoe UI\";"));
+        MainWindow->resize(1578, 747);
+        MainWindow->setStyleSheet(QString::fromUtf8("background-color: #0D1B2A;"));
         centralwidget = new QWidget(MainWindow);
         centralwidget->setObjectName("centralwidget");
         label = new QLabel(centralwidget);
         label->setObjectName("label");
         label->setEnabled(true);
-        label->setGeometry(QRect(630, 170, 271, 51));
+        label->setGeometry(QRect(630, 210, 271, 51));
         label->setStyleSheet(QString::fromUtf8("QLabel{\n"
 "font-size:30px\n"
 "}"));
         label_2 = new QLabel(centralwidget);
         label_2->setObjectName("label_2");
-        label_2->setGeometry(QRect(500, 240, 121, 21));
+        label_2->setGeometry(QRect(500, 280, 121, 21));
         label_2->setStyleSheet(QString::fromUtf8("font: 14pt \"Segoe UI\";"));
         label_3 = new QLabel(centralwidget);
         label_3->setObjectName("label_3");
-        label_3->setGeometry(QRect(500, 300, 181, 21));
+        label_3->setGeometry(QRect(500, 340, 181, 21));
         label_3->setStyleSheet(QString::fromUtf8("font: 14pt \"Segoe UI\";"));
         lineEdit_StudentID = new QLineEdit(centralwidget);
         lineEdit_StudentID->setObjectName("lineEdit_StudentID");
-        lineEdit_StudentID->setGeometry(QRect(630, 240, 231, 28));
+        lineEdit_StudentID->setGeometry(QRect(630, 280, 231, 28));
         lineEdit_StudentID->setStyleSheet(QString::fromUtf8("QLineEdit{\n"
 "font-size:15px;\n"
 "}"));
         lineEdit_Password = new QLineEdit(centralwidget);
         lineEdit_Password->setObjectName("lineEdit_Password");
-        lineEdit_Password->setGeometry(QRect(630, 300, 231, 28));
+        lineEdit_Password->setGeometry(QRect(630, 340, 231, 28));
         lineEdit_Password->setStyleSheet(QString::fromUtf8("QLineEdit{\n"
 "font-size:15px;\n"
 "}"));
         lineEdit_Password->setEchoMode(QLineEdit::EchoMode::Password);
         pushButton_Login = new QPushButton(centralwidget);
         pushButton_Login->setObjectName("pushButton_Login");
-        pushButton_Login->setGeometry(QRect(630, 350, 81, 31));
+        pushButton_Login->setGeometry(QRect(630, 390, 81, 31));
         pushButton_Login->setStyleSheet(QString::fromUtf8("font: 10pt \"Segoe UI\";"));
         pushButton_SignUp = new QPushButton(centralwidget);
         pushButton_SignUp->setObjectName("pushButton_SignUp");
-        pushButton_SignUp->setGeometry(QRect(780, 350, 81, 31));
+        pushButton_SignUp->setGeometry(QRect(780, 390, 81, 31));
         pushButton_SignUp->setStyleSheet(QString::fromUtf8("font: 10pt \"Segoe UI\";"));
         MainWindow->setCentralWidget(centralwidget);
         menubar = new QMenuBar(MainWindow);
         menubar->setObjectName("menubar");
-        menubar->setGeometry(QRect(0, 0, 1644, 49));
+        menubar->setGeometry(QRect(0, 0, 1578, 25));
         MainWindow->setMenuBar(menubar);
         statusbar = new QStatusBar(MainWindow);
         statusbar->setObjectName("statusbar");

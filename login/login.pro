@@ -29,7 +29,8 @@ HEADERS += \
     managecoursespage.h \
     signupwindow.h \
     timetable.h \
-    loadingdialog.h
+    loadingdialog.h \
+    uistyles.h
 
 FORMS += \
     mainwindow.ui \

@@ -1,0 +1,11 @@
+release/main.o
+release/mainwindow.o
+release/managecoursespage.o
+release/signupwindow.o
+release/timetable.o
+release/loadingdialog.o
+release/moc_mainwindow.o
+release/moc_managecoursespage.o
+release/moc_signupwindow.o
+release/moc_timetable.o
+release/moc_loadingdialog.o

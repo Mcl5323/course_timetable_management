@@ -47,7 +47,7 @@ public:
     {
         if (ManageCoursesPage->objectName().isEmpty())
             ManageCoursesPage->setObjectName("ManageCoursesPage");
-        ManageCoursesPage->resize(1606, 751);
+        ManageCoursesPage->resize(1665, 934);
         ManageCoursesPage->setStyleSheet(QString::fromUtf8("background-color: #0D1B2A;\n"
 ""));
         titleLabel = new QLabel(ManageCoursesPage);
@@ -92,7 +92,7 @@ public:
 "    font-size: 12px;\n"
 "}\n"
 "\n"
-"/* \345\261\225\345\274\200\351\241\271\347\233\256 */\n"
+"/* Dropdown items */\n"
 "QComboBox QAbstractItemView {\n"
 "    background-color: #1E293B;\n"
 "    color: #E2E8F0;\n"
@@ -110,7 +110,7 @@ public:
         startTimeLabel_3->setStyleSheet(QString::fromUtf8("font: 12pt \"Segoe UI\";"));
         dayLabel = new QLabel(ManageCoursesPage);
         dayLabel->setObjectName("dayLabel");
-        dayLabel->setGeometry(QRect(120, 200, 41, 21));
+        dayLabel->setGeometry(QRect(100, 200, 41, 21));
         dayLabel->setStyleSheet(QString::fromUtf8("font: 12pt \"Segoe UI\";\n"
 ""));
         label = new QLabel(ManageCoursesPage);
@@ -139,7 +139,7 @@ public:
         classroomLabel->setStyleSheet(QString::fromUtf8("font: 12pt \"Segoe UI\";"));
         addCourseBtn = new QPushButton(ManageCoursesPage);
         addCourseBtn->setObjectName("addCourseBtn");
-        addCourseBtn->setGeometry(QRect(170, 370, 1171, 51));
+        addCourseBtn->setGeometry(QRect(170, 370, 1171, 41));
         addCourseBtn->setStyleSheet(QString::fromUtf8("QPushButton {\n"
 "    background-color: #2ecc71;\n"
 "    color: white;\n"
@@ -159,7 +159,7 @@ public:
 "}"));
         courseCountLabel = new QLabel(ManageCoursesPage);
         courseCountLabel->setObjectName("courseCountLabel");
-        courseCountLabel->setGeometry(QRect(490, 420, 631, 71));
+        courseCountLabel->setGeometry(QRect(470, 420, 631, 71));
         courseCountLabel->setStyleSheet(QString::fromUtf8("font: 700 32pt \"Segoe UI\";"));
         generateBtn = new QPushButton(ManageCoursesPage);
         generateBtn->setObjectName("generateBtn");
@@ -183,7 +183,7 @@ public:
 "}"));
         viewTimetableBtn = new QPushButton(ManageCoursesPage);
         viewTimetableBtn->setObjectName("viewTimetableBtn");
-        viewTimetableBtn->setGeometry(QRect(760, 670, 591, 61));
+        viewTimetableBtn->setGeometry(QRect(760, 670, 581, 61));
         viewTimetableBtn->setStyleSheet(QString::fromUtf8("QPushButton {\n"
 "    background-color: #ff8c42;\n"
 "    color: white;\n"
@@ -217,7 +217,7 @@ public:
 "    font-size: 12px;\n"
 "}\n"
 "\n"
-"/* \345\261\225\345\274\200\351\241\271\347\233\256 */\n"
+"/* Dropdown items */\n"
 "QComboBox QAbstractItemView {\n"
 "    background-color: #1E293B;\n"
 "    color: #E2E8F0;\n"
@@ -241,7 +241,7 @@ public:
 "    font-size: 12px;\n"
 "}\n"
 "\n"
-"/* \345\261\225\345\274\200\351\241\271\347\233\256 */\n"
+"/* Dropdown items */\n"
 "QComboBox QAbstractItemView {\n"
 "    background-color: #1E293B;\n"
 "    color: #E2E8F0;\n"
@@ -255,8 +255,24 @@ public:
 "}"));
         logupbutton = new QPushButton(ManageCoursesPage);
         logupbutton->setObjectName("logupbutton");
-        logupbutton->setGeometry(QRect(1230, 50, 111, 31));
-        logupbutton->setStyleSheet(QString::fromUtf8("font: 350 9pt \"Segoe UI\";"));
+        logupbutton->setGeometry(QRect(1230, 50, 111, 41));
+        logupbutton->setStyleSheet(QString::fromUtf8("QPushButton {\n"
+"    background-color: #5a6c7d;\n"
+"    color: white;\n"
+"    border: 2px solid #4a5c6d;\n"
+"    border-radius: 5px;\n"
+"    padding: 5px 15px;\n"
+"    font: 600 10pt \"Segoe UI\";\n"
+"}\n"
+"\n"
+"QPushButton:hover {\n"
+"    background-color: #4a5c6d;\n"
+"    border: 2px solid #3a4c5d;\n"
+"}\n"
+"\n"
+"QPushButton:pressed {\n"
+"    background-color: #3a4c5d;\n"
+"}"));
         coursetable = new QTableWidget(ManageCoursesPage);
         if (coursetable->columnCount() < 6)
             coursetable->setColumnCount(6);
@@ -319,7 +335,7 @@ public:
         courseCountLabel->setText(QCoreApplication::translate("ManageCoursesPage", "View & Manage Course", nullptr));
         generateBtn->setText(QCoreApplication::translate("ManageCoursesPage", "\342\217\261\357\270\217 Generate Timetable", nullptr));
         viewTimetableBtn->setText(QCoreApplication::translate("ManageCoursesPage", "\360\237\223\205 View Generated Timetables", nullptr));
-        label_2->setText(QCoreApplication::translate("ManageCoursesPage", "Course Name\357\274\232", nullptr));
+        label_2->setText(QCoreApplication::translate("ManageCoursesPage", "Course Name:", nullptr));
         logupbutton->setText(QCoreApplication::translate("ManageCoursesPage", "Logup", nullptr));
         QTableWidgetItem *___qtablewidgetitem = coursetable->horizontalHeaderItem(0);
         ___qtablewidgetitem->setText(QCoreApplication::translate("ManageCoursesPage", "Select", nullptr));
