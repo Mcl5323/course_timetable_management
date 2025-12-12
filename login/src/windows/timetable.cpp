@@ -16,38 +16,32 @@ TIMETABLE::TIMETABLE(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // Set window properties - force full screen
+    // Initialize window properties and maximize
     this->setWindowTitle("View Timetable");
-    this->setWindowFlags(Qt::Window);  // Set as normal window (not dialog)
-    this->setWindowState(Qt::WindowMaximized);  // Force maximize window
-    this->showMaximized();  // Maximize window
+    this->setWindowFlags(Qt::Window);  // Set as normal window
+    this->setWindowState(Qt::WindowMaximized);
+    this->showMaximized();
 
-    // Setup button connections
+    // Connect button signals to slots
     connect(ui->saveAsBtn, &QPushButton::clicked, this, &TIMETABLE::onSaveAs);
     connect(ui->backBtn, &QPushButton::clicked, this, &TIMETABLE::onBack);
     connect(ui->prevPageBtn, &QPushButton::clicked, this, &TIMETABLE::onPrevPage);
     connect(ui->nextPageBtn, &QPushButton::clicked, this, &TIMETABLE::onNextPage);
     connect(ui->deleteBtn, &QPushButton::clicked, this, &TIMETABLE::onDelete);
 
-    // Initialize timetable table
+    // Configure timetable table properties
     if (ui->timetableTable) {
-        ui->timetableTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-
-        // Configure column sizing - stretch to fill window
-        ui->timetableTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->timetableTable->setEditTriggers(QAbstractItemView::NoEditTriggers);  // Disable editing
+        ui->timetableTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);  // Stretch columns
         ui->timetableTable->horizontalHeader()->setStretchLastSection(true);
         ui->timetableTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        ui->timetableTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);  // Enable scrolling for all 7 days
 
-        // Enable vertical scrolling to see all 7 days
-        ui->timetableTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-        // Set row height - increased for better text display
         for (int row = 0; row < ui->timetableTable->rowCount(); ++row) {
-            ui->timetableTable->setRowHeight(row, 80);
+            ui->timetableTable->setRowHeight(row, 80);  // Set row height for better display
         }
 
-        // Enable word wrapping to show all text
-        ui->timetableTable->setWordWrap(true);
+        ui->timetableTable->setWordWrap(true);  // Enable word wrapping
         ui->timetableTable->setTextElideMode(Qt::ElideNone);
     }
 }
@@ -57,53 +51,44 @@ TIMETABLE::~TIMETABLE()
     delete ui;
 }
 
-// This gets called when user clicks "Generate Timetable" button
-// Main job: take the courses and display them on the timetable
+// Set course data and generate timetable combinations
 void TIMETABLE::setCoursesData(const LinkedList<Course> &courses)
 {
-    coursesData = courses;  // store the courses locally
-    allCombinations.clear();  // clear any old combinations
-    currentCombinationIndex = 0;  // start from first page
+    coursesData = courses;  // Store courses locally
+    allCombinations.clear();  // Clear previous combinations
+    currentCombinationIndex = 0;  // Reset to first page
 
-    // Generate all possible non-conflicting combinations
-    generateAllCombinations();
+    generateAllCombinations();  // Generate all possible timetable combinations
 
-    // Display the first combination if any exist
     if (!allCombinations.isEmpty()) {
-        displayCurrentCombination();
+        displayCurrentCombination();  // Show first combination
         updatePageLabel();
     } else {
-        // if no combinations found, just show all courses (might have conflicts)
-        populateTimetable();
+        populateTimetable();  // Show all courses if no valid combinations
         updateStatistics();
         updatePageLabel();
     }
 }
 
+// Populate timetable with course data
 void TIMETABLE::populateTimetable()
 {
     if (!ui->timetableTable) return;
 
-    // Clear existing content
-    ui->timetableTable->clearContents();
+    ui->timetableTable->clearContents();  // Clear existing content
 
-    // Use single default deep blue color for all courses
-    QColor defaultColor("#2d5a8c");
-
-    // Process each course and create spanning cells
+    // Process each course and create table cells
     for (int i = 0; i < coursesData.size(); ++i) {
         const Course &course = coursesData[i];
-        int row = dayToRow(course.day);
-        int startCol = timeToColumn(course.startTime);
+        int row = dayToRow(course.day);  // Convert day to row index
+        int startCol = timeToColumn(course.startTime);  // Convert time to column index
         int endCol = timeToColumn(course.endTime);
 
-        if (row < 0 || startCol < 0 || endCol < 0) continue;
-        if (startCol >= endCol) continue; // Invalid time range
+        if (row < 0 || startCol < 0 || endCol < 0 || startCol >= endCol) continue;  // Skip invalid data
 
-        // Calculate span duration
-        int colSpan = endCol - startCol;
+        int colSpan = endCol - startCol;  // Calculate cell span
 
-        // Create the main cell with full course information - compact format
+        // Create table item with course info
         QTableWidgetItem *mainItem = new QTableWidgetItem(
             QString("%1\n%2\n%3-%4")
                 .arg(course.name)
@@ -112,29 +97,26 @@ void TIMETABLE::populateTimetable()
                 .arg(course.endTime)
         );
 
+        // Set cell styling
         mainItem->setBackground(QBrush(QColor(UIColors::BLUE_DEEP)));
         mainItem->setForeground(QBrush(QColor(UIColors::TEXT_WHITE)));
         mainItem->setTextAlignment(Qt::AlignCenter | Qt::AlignVCenter);
-
-        // Enable word wrapping for this specific item
         mainItem->setData(Qt::TextWordWrap, true);
 
-        // Smaller font size to fit more content
         QFont font = mainItem->font();
         font.setBold(true);
-        font.setPointSize(8);  // Reduced from 10 to 8
+        font.setPointSize(8);  // Smaller font for compact display
         mainItem->setFont(font);
 
-        // Set the item at the starting position
         ui->timetableTable->setItem(row, startCol, mainItem);
 
-        // If course spans multiple hours, merge cells
         if (colSpan > 1) {
-            ui->timetableTable->setSpan(row, startCol, 1, colSpan);
+            ui->timetableTable->setSpan(row, startCol, 1, colSpan);  // Merge cells for multi-hour courses
         }
     }
 }
 
+// Update statistics labels
 void TIMETABLE::updateStatistics()
 {
     if (!ui->totalCourseLabel || !ui->totalHoursLabel || !ui->conflictsLabel) return;
@@ -148,6 +130,7 @@ void TIMETABLE::updateStatistics()
     ui->conflictsLabel->setText(QString("Conflicts: %1").arg(conflicts));
 }
 
+// Calculate total hours of all courses
 int TIMETABLE::calculateTotalHours()
 {
     int total = 0;
@@ -156,39 +139,33 @@ int TIMETABLE::calculateTotalHours()
         int start = timeToColumn(course.startTime);
         int end = timeToColumn(course.endTime);
         if (start >= 0 && end >= 0) {
-            total += (end - start);
+            total += (end - start);  // Add duration
         }
     }
     return total;
 }
 
+// Detect time conflicts between courses
 int TIMETABLE::detectConflicts()
 {
     int conflicts = 0;
 
-    // Check every pair of courses for time conflicts
+    // Check every pair of courses
     for (int i = 0; i < coursesData.size(); ++i) {
         for (int j = i + 1; j < coursesData.size(); ++j) {
             const Course &course1 = coursesData[i];
             const Course &course2 = coursesData[j];
 
-            // Only check courses on the same day
-            if (course1.day != course2.day) {
-                continue;
-            }
+            if (course1.day != course2.day) continue;  // Skip if different days
 
             int start1 = timeToColumn(course1.startTime);
             int end1 = timeToColumn(course1.endTime);
             int start2 = timeToColumn(course2.startTime);
             int end2 = timeToColumn(course2.endTime);
 
-            if (start1 < 0 || end1 < 0 || start2 < 0 || end2 < 0) {
-                continue;
-            }
+            if (start1 < 0 || end1 < 0 || start2 < 0 || end2 < 0) continue;  // Skip invalid times
 
-            // Check if time ranges overlap
-            // Two ranges overlap if: start1 < end2 AND start2 < end1
-            if (start1 < end2 && start2 < end1) {
+            if (start1 < end2 && start2 < end1) {  // Check time overlap
                 conflicts++;
             }
         }
@@ -197,38 +174,33 @@ int TIMETABLE::detectConflicts()
     return conflicts;
 }
 
-// converts time string (like "8am", "2pm") into column number for the table
-// basically maps time to table column position
+// Convert time string to column index (e.g., "8am" -> 0, "2pm" -> 6)
 int TIMETABLE::timeToColumn(const QString &time)
 {
     QString t = time.toLower().trimmed();
-
-    int hour = 0;
     bool isPM = t.contains("pm");
 
-    // clean up the string - remove am/pm and .00
     QString numStr = t;
-    numStr.remove("am").remove("pm").remove(".00");
-    hour = numStr.toInt();
+    numStr.remove("am").remove("pm").remove(".00");  // Clean up string
+    int hour = numStr.toInt();
 
-    // handle 12 hour to 24 hour conversion
+    // Convert 12-hour format to 24-hour format
     if (isPM && hour != 12) {
-        hour += 12;  // 2pm becomes 14
+        hour += 12;  // e.g., 2pm -> 14
     } else if (!isPM && hour == 12) {
-        hour = 0;  // 12am is actually 0 (midnight)
+        hour = 0;  // 12am -> 0
     }
 
-    // our timetable starts at 8am, so 8am = column 0, 9am = column 1, etc
     if (hour >= 8 && hour <= 21) {
-        return hour - 8;
+        return hour - 8;  // Timetable starts at 8am (column 0)
     }
 
-    return -1; // something went wrong, time not in range
+    return -1;  // Invalid time
 }
 
+// Convert day name to row index
 int TIMETABLE::dayToRow(const QString &day)
 {
-    // Manual hash table implementation to replace QMap
     HashTable<QString, int> dayMap;
     dayMap.insert("Monday", 0);
     dayMap.insert("Tuesday", 1);
@@ -238,9 +210,10 @@ int TIMETABLE::dayToRow(const QString &day)
     dayMap.insert("Saturday", 5);
     dayMap.insert("Sunday", 6);
 
-    return dayMap.value(day, -1);
+    return dayMap.value(day, -1);  // Return -1 if day not found
 }
 
+// Save timetable as image file
 void TIMETABLE::onSaveAs()
 {
     if (!ui->timetableTable) {
@@ -248,7 +221,7 @@ void TIMETABLE::onSaveAs()
         return;
     }
 
-    // Open file dialog to choose save location
+    // Open file dialog to select save location
     QString fileName = QFileDialog::getSaveFileName(
         this,
         "Save Timetable As",
@@ -256,11 +229,9 @@ void TIMETABLE::onSaveAs()
         "PNG Image (*.png);;JPEG Image (*.jpg);;All Files (*.*)"
     );
 
-    if (fileName.isEmpty()) {
-        return; // User cancelled
-    }
+    if (fileName.isEmpty()) return;  // User cancelled
 
-    // Save original geometry and policies
+    // Save original properties
     QSize originalSize = ui->timetableTable->size();
     Qt::ScrollBarPolicy oldHPolicy = ui->timetableTable->horizontalScrollBarPolicy();
     Qt::ScrollBarPolicy oldVPolicy = ui->timetableTable->verticalScrollBarPolicy();
@@ -269,7 +240,7 @@ void TIMETABLE::onSaveAs()
     ui->timetableTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->timetableTable->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    // Calculate exact size needed for all content (all 7 days)
+    // Calculate total size needed for all 7 days
     int totalWidth = ui->timetableTable->verticalHeader()->width();
     for (int col = 0; col < ui->timetableTable->columnCount(); ++col) {
         totalWidth += ui->timetableTable->columnWidth(col);
@@ -280,24 +251,22 @@ void TIMETABLE::onSaveAs()
         totalHeight += ui->timetableTable->rowHeight(row);
     }
 
-    // Temporarily resize table to fit all content
-    ui->timetableTable->resize(totalWidth, totalHeight);
+    ui->timetableTable->resize(totalWidth, totalHeight);  // Resize to fit all content
 
-    // Create pixmap with exact table size
+    // Create pixmap and render table
     QPixmap pixmap(totalWidth, totalHeight);
     pixmap.fill(QColor(UIColors::BACKGROUND_VERY_DARK));
 
-    // Render only the table content
     QPainter painter(&pixmap);
     ui->timetableTable->render(&painter, QPoint(), QRegion(), QWidget::DrawChildren);
     painter.end();
 
-    // Restore original size and scrollbar policies
+    // Restore original properties
     ui->timetableTable->resize(originalSize);
     ui->timetableTable->setHorizontalScrollBarPolicy(oldHPolicy);
     ui->timetableTable->setVerticalScrollBarPolicy(oldVPolicy);
 
-    // Save the pixmap to file
+    // Save to file
     if (pixmap.save(fileName)) {
         UIDialogs::showInfo(this, "Success", "Full timetable (Monday to Sunday) saved successfully!");
     } else {
@@ -305,11 +274,13 @@ void TIMETABLE::onSaveAs()
     }
 }
 
+// Close timetable window
 void TIMETABLE::onBack()
 {
     this->close();
 }
 
+// Navigate to previous timetable combination
 void TIMETABLE::onPrevPage()
 {
     if (allCombinations.isEmpty()) return;
@@ -323,6 +294,7 @@ void TIMETABLE::onPrevPage()
     updatePageLabel();
 }
 
+// Navigate to next timetable combination
 void TIMETABLE::onNextPage()
 {
     if (allCombinations.isEmpty()) return;
@@ -336,60 +308,42 @@ void TIMETABLE::onNextPage()
     updatePageLabel();
 }
 
+// Toggle between timetable pages
 void TIMETABLE::onTogglePage()
 {
     if (allCombinations.isEmpty() || allCombinations.size() <= 1) return;
 
-    // Toggle between pages
     currentCombinationIndex++;
     if (currentCombinationIndex >= allCombinations.size()) {
-        currentCombinationIndex = 0;  // Wrap back to first
+        currentCombinationIndex = 0;  // Wrap to first
     }
 
     displayCurrentCombination();
     updatePageLabel();
 }
 
+// Close timetable window
 void TIMETABLE::onDelete()
 {
-    // Confirm before clearing timetable view
-    if (UIDialogs::showConfirmation(this, "Confirm Clear View",
-        "Are you sure you want to clear this timetable view?\n\nNote: Your courses in Manage Courses page will not be deleted.")) {
-
-        // Clear local timetable data only (does not affect ManageCoursesPage)
-        coursesData.clear();
-        allCombinations.clear();
-
-        // Refresh display
-        populateTimetable();
-        updateStatistics();
-
-        UIDialogs::showInfo(this, "Success",
-            "Timetable view cleared!\n\nYour courses are still saved in Manage Courses page.");
-
-        // Close timetable window
-        this->close();
-    }
+    this->close();
 }
 
-// Main function that generates all valid timetable combinations
-// This will show all courses added by the user
-// If there are courses with same name but different times, it will generate
-// multiple combinations (one for each possible selection)
+// Generate all possible timetable combinations from courses with multiple time options
 void TIMETABLE::generateAllCombinations()
 {
-    // Group courses by their exact name and other details to identify unique vs duplicate entries
-    HashTable<QString, LinkedList<Course>> courseGroups;
+    HashTable<QString, LinkedList<Course>> courseGroups;  // Group courses by name
 
+    // Group courses and remove duplicates
     for (int i = 0; i < coursesData.size(); ++i) {
         const Course &course = coursesData[i];
 
-        // Check if this exact course already exists in any group
         bool found = false;
         if (courseGroups.contains(course.name)) {
-            LinkedList<Course> existingGroup = courseGroups.value(course.name);
+            // Get reference to existing group using operator[] (avoids copy)
+            LinkedList<Course> &existingGroup = courseGroups[course.name];
             for (int j = 0; j < existingGroup.size(); ++j) {
                 const Course &existing = existingGroup[j];
+                // Check if exact course already exists
                 if (existing.day == course.day &&
                     existing.startTime == course.startTime &&
                     existing.endTime == course.endTime &&
@@ -398,23 +352,20 @@ void TIMETABLE::generateAllCombinations()
                     break;
                 }
             }
-        }
 
-        // Only add if not duplicate
-        if (!found) {
-            if (!courseGroups.contains(course.name)) {
-                LinkedList<Course> newGroup;
-                newGroup.append(course);
-                courseGroups.insert(course.name, newGroup);
-            } else {
-                LinkedList<Course> existingGroup = courseGroups.value(course.name);
+            // Append to existing group if not duplicate (modifies original via reference)
+            if (!found) {
                 existingGroup.append(course);
-                courseGroups.insert(course.name, existingGroup);
             }
+        } else {
+            // Create new group for new course name
+            LinkedList<Course> newGroup;
+            newGroup.append(course);
+            courseGroups.insert(course.name, newGroup);
         }
     }
 
-    // Check if all courses have unique names or if there are multiple options
+    // Check if any course has multiple time options
     bool hasMultipleOptions = false;
     LinkedList<QString> keys = courseGroups.keys();
     for (int i = 0; i < keys.size(); ++i) {
@@ -424,7 +375,7 @@ void TIMETABLE::generateAllCombinations()
         }
     }
 
-    // If no multiple options, just create one combination with all unique courses
+    // If all courses are unique, create single combination
     if (!hasMultipleOptions) {
         LinkedList<Course> uniqueCourses;
         for (int i = 0; i < keys.size(); ++i) {
@@ -437,7 +388,7 @@ void TIMETABLE::generateAllCombinations()
         return;
     }
 
-    // Otherwise, generate combinations for courses with multiple time options
+    // Generate all combinations using recursion
     LinkedList<LinkedList<Course>> groups;
     for (int i = 0; i < keys.size(); ++i) {
         groups.append(courseGroups.value(keys[i]));
@@ -445,40 +396,31 @@ void TIMETABLE::generateAllCombinations()
 
     if (groups.isEmpty()) return;
 
-    // use recursion to try all combinations (including conflicting ones)
     LinkedList<Course> currentCombination;
     generateCombinationsRecursive(groups, 0, currentCombination);
 }
 
-// This is where the magic happens - recursively builds all combinations
-// Think of it like a decision tree: for each course, try all its time options
+// Recursive function to generate all combinations (backtracking algorithm)
 void TIMETABLE::generateCombinationsRecursive(const LinkedList<LinkedList<Course>> &groups,
                                                int groupIndex,
                                                LinkedList<Course> &currentCombination)
 {
-    // done! we've picked one option for each course
-    if (groupIndex >= groups.size()) {
-        // Save all combinations, even if they have conflicts
-        // The user wants to see all possible timetables
+    if (groupIndex >= groups.size()) {  // Base case: all courses selected
         allCombinations.append(currentCombination);
         return;
     }
 
-    // try each possible time slot for this course
+    // Try each time option for current course
     const LinkedList<Course> &currentGroup = groups[groupIndex];
     for (int i = 0; i < currentGroup.size(); ++i) {
         const Course &course = currentGroup[i];
-        currentCombination.append(course);  // try this option
-
-        // recursively fill in the rest of the courses
-        generateCombinationsRecursive(groups, groupIndex + 1, currentCombination);
-
-        // backtrack - undo this choice and try the next option
-        currentCombination.removeLast();
+        currentCombination.append(course);  // Choose
+        generateCombinationsRecursive(groups, groupIndex + 1, currentCombination);  // Explore
+        currentCombination.removeLast();  // Unchoose (backtrack)
     }
 }
 
-// Check if a combination of courses has any time conflicts
+// Check if a combination has time conflicts
 bool TIMETABLE::hasConflict(const LinkedList<Course> &combination)
 {
     for (int i = 0; i < combination.size(); ++i) {
@@ -486,25 +428,22 @@ bool TIMETABLE::hasConflict(const LinkedList<Course> &combination)
             const Course &c1 = combination[i];
             const Course &c2 = combination[j];
 
-            // Check if same day
-            if (c1.day != c2.day) continue;
+            if (c1.day != c2.day) continue;  // Different days, no conflict
 
-            // Convert times to columns
             int start1 = timeToColumn(c1.startTime);
             int end1 = timeToColumn(c1.endTime);
             int start2 = timeToColumn(c2.startTime);
             int end2 = timeToColumn(c2.endTime);
 
-            // Check for time overlap
-            if (!(end1 <= start2 || end2 <= start1)) {
-                return true;  // Conflict found
+            if (!(end1 <= start2 || end2 <= start1)) {  // Time overlap detected
+                return true;
             }
         }
     }
     return false;  // No conflicts
 }
 
-// Display the current combination on the timetable
+// Display the currently selected combination
 void TIMETABLE::displayCurrentCombination()
 {
     if (allCombinations.isEmpty() || currentCombinationIndex < 0 ||
@@ -512,32 +451,27 @@ void TIMETABLE::displayCurrentCombination()
         return;
     }
 
-    // Temporarily set coursesData to the current combination
-    LinkedList<Course> originalData = coursesData;
-    coursesData = allCombinations[currentCombinationIndex];
+    LinkedList<Course> originalData = coursesData;  // Save original
+    coursesData = allCombinations[currentCombinationIndex];  // Switch to current combination
 
-    // Populate the timetable with this combination
     populateTimetable();
-
-    // Update statistics for current combination (use the current combination data)
     updateStatistics();
 
-    // Restore original data AFTER updating statistics
-    coursesData = originalData;
+    coursesData = originalData;  // Restore original
 }
 
-// Update the page label to show current page
+// Update page label and navigation buttons
 void TIMETABLE::updatePageLabel()
 {
     if (!allCombinations.isEmpty()) {
-        // Update the page number label
+        // Update page number display
         if (ui->pageNumberLabel) {
             ui->pageNumberLabel->setText(QString("%1/%2")
                                          .arg(currentCombinationIndex + 1)
                                          .arg(allCombinations.size()));
         }
 
-        // Show/hide navigation buttons based on number of pages
+        // Show/hide navigation buttons based on number of combinations
         if (allCombinations.size() > 1) {
             if (ui->prevPageBtn) ui->prevPageBtn->show();
             if (ui->nextPageBtn) ui->nextPageBtn->show();

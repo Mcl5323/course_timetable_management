@@ -16,25 +16,34 @@ win32 {
 TARGET = login
 TEMPLATE = app
 
+# Include paths for headers
+INCLUDEPATH += include \
+               include/windows \
+               include/dialogs \
+               include/utils
+
+# Source files
 SOURCES += \
-    main.cpp \
-    mainwindow.cpp \
-    managecoursespage.cpp \
-    signupwindow.cpp \
-    timetable.cpp \
-    loadingdialog.cpp
+    src/main.cpp \
+    src/windows/mainwindow.cpp \
+    src/windows/managecoursespage.cpp \
+    src/windows/signupwindow.cpp \
+    src/windows/timetable.cpp \
+    src/dialogs/loadingdialog.cpp
 
+# Header files
 HEADERS += \
-    mainwindow.h \
-    managecoursespage.h \
-    signupwindow.h \
-    timetable.h \
-    loadingdialog.h \
-    uistyles.h \
-    datastructures.h
+    include/windows/mainwindow.h \
+    include/windows/managecoursespage.h \
+    include/windows/signupwindow.h \
+    include/windows/timetable.h \
+    include/dialogs/loadingdialog.h \
+    include/utils/uistyles.h \
+    include/datastructures.h
 
+# UI form files
 FORMS += \
-    mainwindow.ui \
-    managecoursespage.ui \
-    signupwindow.ui \
-    timetable.ui
+    forms/mainwindow.ui \
+    forms/managecoursespage.ui \
+    forms/signupwindow.ui \
+    forms/timetable.ui

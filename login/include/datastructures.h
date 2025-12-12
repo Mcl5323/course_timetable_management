@@ -1,70 +1,37 @@
-/**
- * Manual Data Structures Implementation
- *
- * This file contains manually implemented data structures to replace
- * Qt's built-in QVector and QMap containers.
- *
- * Implemented Data Structures:
- * 1. LinkedList - Dynamic list using nodes and pointers
- * 2. HashTable - Hash map for key-value storage with collision handling
- */
-
 #ifndef DATASTRUCTURES_H
 #define DATASTRUCTURES_H
 
 #include <QString>
 #include <functional>
 
-// Forward declarations
 struct Course;
 
-// ============================================================================
-// LINKED LIST IMPLEMENTATION
-// Purpose: Replace QVector for storing Course objects
-// Uses: Doubly linked list for efficient insertion/deletion
-// ============================================================================
-
-/**
- * Node structure for LinkedList
- * Contains data and pointers to next and previous nodes
- */
+// Node for linked list - each box stores data and links to next/previous box
 template <typename T>
 class Node {
 public:
-    T data;           // The actual data stored
-    Node* next;       // Pointer to next node
-    Node* prev;       // Pointer to previous node (for doubly linked list)
+    T data;           // Data stored in this box
+    Node* next;       // Link to next box
+    Node* prev;       // Link to previous box
 
-    // Constructor
     Node(const T& value) : data(value), next(nullptr), prev(nullptr) {}
 };
 
-/**
- * LinkedList Class - Manual implementation of dynamic list
- * Replaces QVector<Course>
- *
- * Features:
- * - Dynamic size (grows/shrinks as needed)
- * - Efficient insertion at any position
- * - Supports iteration, search, insert, delete
- * - Memory management with proper cleanup
- */
+// LinkedList - chain of connected boxes that can grow or shrink
+// Used to: store courses, save combinations, keep search results
+// Why use: easy to add/remove items, can go forward and backward
 template <typename T>
 class LinkedList {
 private:
-    Node<T>* head;    // Pointer to first node
-    Node<T>* tail;    // Pointer to last node
-    int count;        // Number of elements in list
+    Node<T>* head;    // First box in chain
+    Node<T>* tail;    // Last box in chain
+    int count;        // How many boxes we have
 
 public:
-    /**
-     * Constructor - Initialize empty list
-     */
+    // Constructor - start with empty chain
     LinkedList() : head(nullptr), tail(nullptr), count(0) {}
 
-    /**
-     * Copy Constructor - Deep copy of another list
-     */
+    // Copy constructor - make a copy of another chain
     LinkedList(const LinkedList& other) : head(nullptr), tail(nullptr), count(0) {
         Node<T>* current = other.head;
         while (current) {
@@ -73,9 +40,7 @@ public:
         }
     }
 
-    /**
-     * Assignment Operator - Deep copy assignment
-     */
+    // Assignment operator - copy one chain to another
     LinkedList& operator=(const LinkedList& other) {
         if (this != &other) {
             clear();
@@ -88,36 +53,26 @@ public:
         return *this;
     }
 
-    /**
-     * Destructor - Clean up all nodes
-     */
+    // Destructor - clean up all boxes when done
     ~LinkedList() {
         clear();
     }
 
-    /**
-     * Append element to end of list
-     * Time Complexity: O(1)
-     */
+    // Add new box to end of chain - create new link
     void append(const T& value) {
         Node<T>* newNode = new Node<T>(value);
 
         if (!head) {
-            // First element
-            head = tail = newNode;
+            head = tail = newNode;  // First box
         } else {
-            // Add to end
-            tail->next = newNode;
-            newNode->prev = tail;
-            tail = newNode;
+            tail->next = newNode;   // Old last box links to new box
+            newNode->prev = tail;   // New box links back to old last box
+            tail = newNode;         // Update last box pointer
         }
         count++;
     }
 
-    /**
-     * Insert element at specific index
-     * Time Complexity: O(n)
-     */
+    // Insert box at specific spot - keep all links working
     void insert(int index, const T& value) {
         if (index < 0 || index > count) return;
 
@@ -141,130 +96,92 @@ public:
             Node<T>* newNode = new Node<T>(value);
             newNode->next = current;
             newNode->prev = current->prev;
-            if (current->prev) current->prev->next = newNode;
-            current->prev = newNode;
+            if (current->prev) current->prev->next = newNode;  // Fix link from previous box
+            current->prev = newNode;  // Fix link from current box
             count++;
         }
     }
 
-    /**
-     * Remove element at specific index
-     * Time Complexity: O(n)
-     */
+    // Remove box at position - reconnect the chain
     void removeAt(int index) {
         if (index < 0 || index >= count) return;
 
         Node<T>* toDelete = getNodeAt(index);
         if (!toDelete) return;
 
-        // Update links
+        // Fix link from previous box
         if (toDelete->prev) {
             toDelete->prev->next = toDelete->next;
         } else {
-            head = toDelete->next;
+            head = toDelete->next;  // Removing first box
         }
 
+        // Fix link from next box
         if (toDelete->next) {
             toDelete->next->prev = toDelete->prev;
         } else {
-            tail = toDelete->prev;
+            tail = toDelete->prev;  // Removing last box
         }
 
         delete toDelete;
         count--;
     }
 
-    /**
-     * Remove last element
-     * Time Complexity: O(1)
-     */
+    // Remove last box - used when backtracking combinations
     void removeLast() {
         if (count > 0) {
             removeAt(count - 1);
         }
     }
 
-    /**
-     * Get element at index (by reference for modification)
-     * Time Complexity: O(n)
-     */
+    // Get data from box at position (can modify)
     T& operator[](int index) {
         Node<T>* node = getNodeAt(index);
         return node->data;
     }
 
-    /**
-     * Get element at index (const version)
-     * Time Complexity: O(n)
-     */
+    // Get data from box at position (read only)
     const T& operator[](int index) const {
         Node<T>* node = getNodeAt(index);
         return node->data;
     }
 
-    /**
-     * Get element at index (const version with bounds checking)
-     * Time Complexity: O(n)
-     */
     const T& at(int index) const {
         return (*this)[index];
     }
 
-    /**
-     * Get number of elements
-     * Time Complexity: O(1)
-     */
     int size() const {
         return count;
     }
 
-    /**
-     * Check if list is empty
-     * Time Complexity: O(1)
-     */
     bool isEmpty() const {
         return count == 0;
     }
 
-    /**
-     * Clear all elements
-     * Time Complexity: O(n)
-     */
+    // Clear all boxes - break all links and free memory
     void clear() {
         while (head) {
             Node<T>* temp = head;
-            head = head->next;
-            delete temp;
+            head = head->next;  // Move to next box
+            delete temp;        // Delete current box
         }
         head = tail = nullptr;
         count = 0;
     }
 
-    /**
-     * Get first element
-     */
     const T& first() const {
         return head->data;
     }
 
-    /**
-     * Get last element
-     */
     const T& last() const {
         return tail->data;
     }
 
-    /**
-     * QUICK SORT ALGORITHM - Manual Implementation
-     * Purpose: Sort the linked list using QuickSort algorithm
-     * Time Complexity: O(n log n) average, O(n²) worst case
-     *
-     * This is a custom implementation of QuickSort adapted for linked lists
-     */
+    // QuickSort - sorts list using custom comparison function
     void quickSort(std::function<bool(const T&, const T&)> compare) {
         if (count <= 1) return;
 
-        // Convert to array for easier sorting
+        // Convert linked list to array for sorting
         T* arr = new T[count];
         Node<T>* current = head;
         for (int i = 0; i < count; i++) {
@@ -272,10 +189,9 @@ public:
             current = current->next;
         }
 
-        // Perform QuickSort on array
         quickSortHelper(arr, 0, count - 1, compare);
 
-        // Copy back to linked list
+        // Copy sorted data back to linked list (maintains connections)
         current = head;
         for (int i = 0; i < count; i++) {
             current->data = arr[i];
@@ -285,12 +201,7 @@ public:
         delete[] arr;
     }
 
-    /**
-     * LINEAR SEARCH ALGORITHM - Manual Implementation
-     * Purpose: Search for elements matching a condition
-     * Time Complexity: O(n)
-     * Returns: LinkedList of indices where condition is true
-     */
+    // Linear search - returns indices of elements matching condition
     LinkedList<int> linearSearch(std::function<bool(const T&)> condition) const {
         LinkedList<int> results;
         Node<T>* current = head;
@@ -300,25 +211,24 @@ public:
             if (condition(current->data)) {
                 results.append(index);
             }
-            current = current->next;
+            current = current->next;  // Follow connection to next node
             index++;
         }
 
         return results;
     }
 
-    /**
-     * Iterator support for range-based for loops
-     */
+    // Iterator - allows traversing linked list connections with for-each loop
     class Iterator {
     private:
-        Node<T>* current;
+        Node<T>* current;  // Current position in linked list
     public:
         Iterator(Node<T>* node) : current(node) {}
 
         T& operator*() { return current->data; }
         const T& operator*() const { return current->data; }
 
+        // Move to next element by following next pointer
         Iterator& operator++() {
             if (current) current = current->next;
             return *this;
@@ -336,20 +246,20 @@ public:
     const Iterator end() const { return Iterator(nullptr); }
 
 private:
-    /**
-     * Helper: Get node at specific index
-     */
+    // Get node at index - optimized bidirectional traversal
+    // Uses head->next connections for first half, tail->prev for second half
     Node<T>* getNodeAt(int index) const {
         if (index < 0 || index >= count) return nullptr;
 
         Node<T>* current;
-        // Optimize by starting from head or tail
         if (index < count / 2) {
+            // Traverse from head using next connections
             current = head;
             for (int i = 0; i < index; i++) {
                 current = current->next;
             }
         } else {
+            // Traverse from tail using prev connections (faster for end elements)
             current = tail;
             for (int i = count - 1; i > index; i--) {
                 current = current->prev;
@@ -358,9 +268,6 @@ private:
         return current;
     }
 
-    /**
-     * QuickSort Helper - Recursive partitioning
-     */
     void quickSortHelper(T* arr, int low, int high, std::function<bool(const T&, const T&)> compare) {
         if (low < high) {
             int pivotIndex = partition(arr, low, high, compare);
@@ -369,9 +276,6 @@ private:
         }
     }
 
-    /**
-     * QuickSort Partition - Choose pivot and partition array
-     */
     int partition(T* arr, int low, int high, std::function<bool(const T&, const T&)> compare) {
         T pivot = arr[high];
         int i = low - 1;
@@ -379,14 +283,12 @@ private:
         for (int j = low; j < high; j++) {
             if (compare(arr[j], pivot)) {
                 i++;
-                // Swap arr[i] and arr[j]
                 T temp = arr[i];
                 arr[i] = arr[j];
                 arr[j] = temp;
             }
         }
 
-        // Swap arr[i+1] and arr[high] (pivot)
         T temp = arr[i + 1];
         arr[i + 1] = arr[high];
         arr[high] = temp;
@@ -396,94 +298,68 @@ private:
 };
 
 
-// ============================================================================
-// HASH TABLE IMPLEMENTATION
-// Purpose: Replace QMap for key-value storage
-// Uses: Separate chaining for collision handling
-// ============================================================================
-
-/**
- * HashEntry - Key-Value pair for hash table
- */
+// Hash table entry - stores key-value pair and connection to next entry in chain
 template <typename K, typename V>
 class HashEntry {
 public:
-    K key;
-    V value;
-    HashEntry* next;  // For chaining (collision handling)
+    K key;             // The key for lookup
+    V value;           // The stored value
+    HashEntry* next;   // Connection to next entry in case of collision (chaining)
 
     HashEntry(const K& k, const V& v) : key(k), value(v), next(nullptr) {}
 };
 
-/**
- * HashTable Class - Manual implementation of hash map
- * Replaces QMap<QString, int>
- *
- * Features:
- * - Fast O(1) average lookup time
- * - Separate chaining for collision handling
- * - Dynamic resizing when load factor exceeds threshold
- * - Custom hash function for strings
- */
+// Hash Table with Chaining - fast key-value storage using hash function
+// Used to map day names to row indices, group courses by name, etc.
+// Advantages: O(1) average lookup/insert, handles collisions with linked chains
 template <typename K, typename V>
 class HashTable {
 private:
     static const int INITIAL_SIZE = 16;
-    static const int MAX_LOAD_FACTOR = 75;  // 75% load factor threshold
+    static const int MAX_LOAD_FACTOR = 75;  // Resize when 75% full
 
-    HashEntry<K, V>** table;  // Array of hash entry pointers
+    HashEntry<K, V>** table;  // Array of pointers to entry chains
     int capacity;             // Size of hash table
     int count;                // Number of elements stored
 
-    /**
-     * Hash Function - Convert key to index
-     * Uses simple polynomial rolling hash
-     */
+    // Hash function for QString - converts string to index
     int hashFunction(const QString& key) const {
         unsigned int hashValue = 0;
         for (int i = 0; i < key.length(); i++) {
-            hashValue = hashValue * 31 + key[i].unicode();
+            hashValue = hashValue * 31 + key[i].unicode();  // Polynomial rolling hash
         }
-        return hashValue % capacity;
+        return hashValue % capacity;  // Map to table size
     }
 
-    /**
-     * Generic hash for other types (fallback)
-     */
+    // Generic hash function for other types
     template<typename KeyType>
     int hashFunction(const KeyType& key) const {
         return std::hash<KeyType>{}(key) % capacity;
     }
 
-    /**
-     * Unified hash dispatcher
-     */
     int hash(const K& key) const {
         return hashFunction(key);
     }
 
-    /**
-     * Resize table when load factor is too high
-     */
+    // Resize table when load factor exceeded - rehashes all entries
     void resize() {
         int oldCapacity = capacity;
         HashEntry<K, V>** oldTable = table;
 
-        // Double the capacity
-        capacity *= 2;
+        capacity *= 2;  // Double the size
         table = new HashEntry<K, V>*[capacity];
         for (int i = 0; i < capacity; i++) {
             table[i] = nullptr;
         }
         count = 0;
 
-        // Rehash all entries
+        // Rehash all entries (connections will be rebuilt)
         for (int i = 0; i < oldCapacity; i++) {
             HashEntry<K, V>* entry = oldTable[i];
-            while (entry) {
+            while (entry) {  // Follow chain connections
                 insert(entry->key, entry->value);
                 HashEntry<K, V>* temp = entry;
-                entry = entry->next;
+                entry = entry->next;  // Move to next in chain
                 delete temp;
             }
         }
@@ -492,58 +368,46 @@ private:
     }
 
 public:
-    /**
-     * Constructor
-     */
+    // Constructor - initializes empty hash table with chains
     HashTable() : capacity(INITIAL_SIZE), count(0) {
         table = new HashEntry<K, V>*[capacity];
         for (int i = 0; i < capacity; i++) {
-            table[i] = nullptr;
+            table[i] = nullptr;  // No chains initially
         }
     }
 
-    /**
-     * Destructor
-     */
+    // Destructor - cleans up all chains
     ~HashTable() {
         clear();
         delete[] table;
     }
 
-    /**
-     * Insert or update key-value pair
-     * Time Complexity: O(1) average
-     */
+    // Insert key-value pair - handles collisions by chaining
     void insert(const K& key, const V& value) {
-        // Check load factor and resize if needed
         if (count * 100 / capacity > MAX_LOAD_FACTOR) {
-            resize();
+            resize();  // Prevent chains from getting too long
         }
 
         int index = hash(key);
         HashEntry<K, V>* entry = table[index];
 
-        // Search for existing key
+        // Search chain for existing key
         while (entry) {
             if (entry->key == key) {
                 entry->value = value;  // Update existing
                 return;
             }
-            entry = entry->next;
+            entry = entry->next;  // Follow chain connection
         }
 
-        // Insert new entry at beginning of chain
+        // Add new entry at head of chain
         HashEntry<K, V>* newEntry = new HashEntry<K, V>(key, value);
-        newEntry->next = table[index];
+        newEntry->next = table[index];  // Connect to existing chain
         table[index] = newEntry;
         count++;
     }
 
-    /**
-     * Get value by key
-     * Time Complexity: O(1) average
-     * Returns default value if key not found
-     */
+    // Get value by key - follows chain to find match
     V value(const K& key, const V& defaultValue = V()) const {
         int index = hash(key);
         HashEntry<K, V>* entry = table[index];
@@ -552,16 +416,13 @@ public:
             if (entry->key == key) {
                 return entry->value;
             }
-            entry = entry->next;
+            entry = entry->next;  // Follow chain
         }
 
-        return defaultValue;
+        return defaultValue;  // Not found
     }
 
-    /**
-     * Check if key exists
-     * Time Complexity: O(1) average
-     */
+    // Check if key exists - searches chain at hashed index
     bool contains(const K& key) const {
         int index = hash(key);
         HashEntry<K, V>* entry = table[index];
@@ -570,16 +431,13 @@ public:
             if (entry->key == key) {
                 return true;
             }
-            entry = entry->next;
+            entry = entry->next;  // Follow chain
         }
 
         return false;
     }
 
-    /**
-     * Remove key-value pair
-     * Time Complexity: O(1) average
-     */
+    // Remove entry - updates chain connections
     void remove(const K& key) {
         int index = hash(key);
         HashEntry<K, V>* entry = table[index];
@@ -588,26 +446,24 @@ public:
         while (entry) {
             if (entry->key == key) {
                 if (prev) {
-                    prev->next = entry->next;
+                    prev->next = entry->next;  // Reconnect chain
                 } else {
-                    table[index] = entry->next;
+                    table[index] = entry->next;  // Update head
                 }
                 delete entry;
                 count--;
                 return;
             }
             prev = entry;
-            entry = entry->next;
+            entry = entry->next;  // Follow chain
         }
     }
 
-    /**
-     * Clear all entries
-     */
+    // Clear all entries - breaks all chain connections
     void clear() {
         for (int i = 0; i < capacity; i++) {
             HashEntry<K, V>* entry = table[i];
-            while (entry) {
+            while (entry) {  // Follow chain
                 HashEntry<K, V>* temp = entry;
                 entry = entry->next;
                 delete temp;
@@ -617,28 +473,20 @@ public:
         count = 0;
     }
 
-    /**
-     * Get number of entries
-     */
     int size() const {
         return count;
     }
 
-    /**
-     * Check if empty
-     */
     bool isEmpty() const {
         return count == 0;
     }
 
-    /**
-     * Get all keys
-     */
+    // Get all keys - traverses all chains
     LinkedList<K> keys() const {
         LinkedList<K> result;
         for (int i = 0; i < capacity; i++) {
             HashEntry<K, V>* entry = table[i];
-            while (entry) {
+            while (entry) {  // Follow chain
                 result.append(entry->key);
                 entry = entry->next;
             }
@@ -646,24 +494,20 @@ public:
         return result;
     }
 
-    /**
-     * Operator[] for easy access (returns reference for modification)
-     */
+    // Access operator - auto-creates entry if not exists
     V& operator[](const K& key) {
         int index = hash(key);
         HashEntry<K, V>* entry = table[index];
 
-        // Search for existing key
         while (entry) {
             if (entry->key == key) {
                 return entry->value;
             }
-            entry = entry->next;
+            entry = entry->next;  // Follow chain
         }
 
-        // Key not found, insert with default value
-        insert(key, V());
-        return (*this)[key];  // Recursive call to get reference
+        insert(key, V());  // Create new entry in chain
+        return (*this)[key];
     }
 };
 

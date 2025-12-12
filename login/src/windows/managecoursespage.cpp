@@ -1,0 +1,577 @@
+#include "managecoursespage.h"
+#include "ui_managecoursespage.h"
+#include "mainwindow.h"
+#include "timetable.h"
+#include "loadingdialog.h"
+#include "uistyles.h"
+#include <QMessageBox>
+#include <QPushButton>
+#include <QCheckBox>
+#include <QTableWidgetItem>
+#include <QHeaderView>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QTableWidget>
+#include <QTimer>
+#include <QFile>
+#include <QTextStream>
+#include <QDir>
+#include <QCoreApplication>
+
+// Constructor - Initialize course management page
+ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::ManageCoursesPage)
+    , currentUser(currentUser)
+    , editingRow(-1)
+    , timetableWindow(nullptr)
+    , loadingDialog(nullptr) {
+
+    ui->setupUi(this);
+    this->setWindowTitle("Manage Courses");
+    this->setWindowState(Qt::WindowMaximized);
+    this->showMaximized();
+    this->setStyleSheet("background-color: " + UIColors::BACKGROUND_DARK_BLUE_GRAY);
+
+    if (ui->dayCombo) {  // Setup day selection
+        ui->dayCombo->addItems({"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"});
+    }
+
+    if (ui->startTimeLabel) {  // Setup start time (8am to 10pm)
+        QStringList hours;
+        for (int i = 8; i <= 11; ++i) hours << QString("%1am").arg(i);
+        hours << "12pm";
+        for (int i = 1; i <= 10; ++i) hours << QString("%1pm").arg(i);
+        ui->startTimeLabel->addItems(hours);
+    }
+
+    if (ui->endTimeInput) {  // Setup end time (8am to 10pm)
+        QStringList hours;
+        for (int i = 8; i <= 11; ++i) hours << QString("%1am").arg(i);
+        hours << "12pm";
+        for (int i = 1; i <= 10; ++i) hours << QString("%1pm").arg(i);
+        ui->endTimeInput->addItems(hours);
+    }
+
+    if (ui->coursetable) {  // Setup course table
+        ui->coursetable->setColumnCount(6);
+        ui->coursetable->setHorizontalHeaderLabels({"Select", "Course Name", "Day", "Time", "Classroom", "Actions"});
+        ui->coursetable->setRowCount(0);
+        ui->coursetable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->coursetable->setColumnWidth(0, 80);
+        ui->coursetable->setColumnWidth(1, 180);
+        ui->coursetable->setColumnWidth(2, 120);
+        ui->coursetable->setColumnWidth(3, 120);
+        ui->coursetable->setColumnWidth(4, 120);
+        ui->coursetable->setColumnWidth(5, 180);
+        ui->coursetable->setMaximumHeight(400);  // Limit height, enable scrolling
+        ui->coursetable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        ui->coursetable->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        ui->coursetable->horizontalHeader()->setStyleSheet(UIStyles::tableHeaderBlue());
+        ui->coursetable->setStyleSheet(UIStyles::tableWidgetWhite());
+        ui->coursetable->setAlternatingRowColors(false);
+    }
+
+    if (ui->logupbutton) {  // Setup logout button (lambda function)
+        connect(ui->logupbutton, &QPushButton::clicked, this, [this, parent]() {
+            this->hide();
+            MainWindow *mainWindow = qobject_cast<MainWindow*>(parent);
+            if (mainWindow) {
+                mainWindow->switchToLoginPage();
+            }
+        });
+    }
+
+    // Create search & sort UI components (programmatically created)
+    searchInput = new QLineEdit(this);
+    searchInput->setPlaceholderText("Search courses (name, day, time, classroom)...");
+    searchInput->setGeometry(50, 600, 400, 35);
+    searchInput->setStyleSheet(UIStyles::lineEditWhite());
+
+    searchBtn = new QPushButton("Search", this);
+    searchBtn->setGeometry(460, 600, 100, 35);
+    searchBtn->setStyleSheet(UIStyles::blueButton());
+
+    clearSearchBtn = new QPushButton("Clear Search", this);
+    clearSearchBtn->setGeometry(570, 600, 120, 35);
+    clearSearchBtn->setStyleSheet(UIStyles::grayButton());
+
+    sortCombo = new QComboBox(this);
+    sortCombo->setGeometry(900, 600, 250, 35);
+    sortCombo->addItems({"Select Sort Option", "Sort by Name (A-Z)", "Sort by Day (Mon-Sun)", "Sort by Time (Early-Late)", "Sort by Classroom (A-Z)"});
+    sortCombo->setStyleSheet(UIStyles::comboBoxGreen());
+
+    setupConnections();  // Connect all signals to slots
+    loadCoursesFromFile();  // Load saved courses
+}
+
+// Destructor - Clean up UI components
+ManageCoursesPage::~ManageCoursesPage() {
+    delete ui;
+    if (timetableWindow) delete timetableWindow;
+    if (loadingDialog) delete loadingDialog;
+}
+
+// Convert time string to 24-hour int (e.g., "2pm" -> 14) for comparison
+int ManageCoursesPage::timeToInt(const QString &time) {
+    QString t = time.toLower().trimmed();
+    bool isPM = t.contains("pm");
+    QString numStr = t;
+    numStr.remove("am").remove("pm");
+    int hour = numStr.toInt();
+    if (isPM && hour != 12) hour += 12;  // 2pm becomes 14
+    else if (!isPM && hour == 12) hour = 0;  // midnight edge case
+    return hour;
+}
+
+// Setup all signal-slot connections
+void ManageCoursesPage::setupConnections() {
+    if (ui->addCourseBtn) {
+        connect(ui->addCourseBtn, &QPushButton::clicked, this, &ManageCoursesPage::onAddCourse);
+    }
+    if (ui->generateBtn) {
+        connect(ui->generateBtn, &QPushButton::clicked, this, &ManageCoursesPage::onGenerateTimetable);
+    }
+    if (ui->viewTimetableBtn) {
+        connect(ui->viewTimetableBtn, &QPushButton::clicked, this, &ManageCoursesPage::onViewTimetable);
+    }
+    connect(searchBtn, &QPushButton::clicked, this, &ManageCoursesPage::onSearchCourse);
+    connect(clearSearchBtn, &QPushButton::clicked, this, &ManageCoursesPage::onClearSearch);
+    connect(sortCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ManageCoursesPage::onSortCourses);
+}
+
+// Add or update course (editingRow == -1: add mode, >= 0: edit mode)
+void ManageCoursesPage::onAddCourse() {
+    QString name = ui->courseNameInput->text().trimmed();
+    QString day = ui->dayCombo->currentText();
+    QString startTime = ui->startTimeLabel->currentText();
+    QString endTime = ui->endTimeInput->currentText();
+    QString classroom = ui->classroomInput->text().trimmed();
+
+    // Validate all fields
+    if (name.isEmpty()) {
+        UIDialogs::showWarning(this, "Invalid Input", "Please enter course name!");
+        ui->courseNameInput->setFocus();
+        return;
+    }
+    if (startTime.isEmpty()) {
+        UIDialogs::showWarning(this, "Invalid Input", "Please select start time!");
+        ui->startTimeLabel->setFocus();
+        return;
+    }
+    if (endTime.isEmpty()) {
+        UIDialogs::showWarning(this, "Invalid Input", "Please select end time!");
+        ui->endTimeInput->setFocus();
+        return;
+    }
+    if (classroom.isEmpty()) {
+        UIDialogs::showWarning(this, "Invalid Input", "Please enter classroom!");
+        ui->classroomInput->setFocus();
+        return;
+    }
+    if (timeToInt(startTime) >= timeToInt(endTime)) {  // Validate time logic
+        UIDialogs::showWarning(this, "Invalid Time", QString("End time (%1) must be after start time (%2)!").arg(endTime, startTime));
+        ui->endTimeInput->setFocus();
+        return;
+    }
+
+    // Check for exact duplicates (allow same course name with different times/rooms)
+    for (int i = 0; i < courses.size(); ++i) {
+        if (i == editingRow) continue;  // Skip current editing course
+        if (courses[i].name == name && courses[i].day == day && courses[i].startTime == startTime &&
+            courses[i].endTime == endTime && courses[i].classroom == classroom) {
+            UIDialogs::showWarning(this, "Duplicate Course",
+                QString("This exact course already exists!\n\nCourse: %1\nDay: %2\nTime: %3 - %4\nClassroom: %5")
+                    .arg(name, day, startTime, endTime, classroom));
+            return;
+        }
+    }
+
+    if (editingRow >= 0 && editingRow < courses.size()) {  // Update existing course
+        courses[editingRow].name = name;
+        courses[editingRow].day = day;
+        courses[editingRow].startTime = startTime;
+        courses[editingRow].endTime = endTime;
+        courses[editingRow].classroom = classroom;
+        editingRow = -1;
+        refreshTable();
+        clearForm();
+        saveCoursesToFile();
+        UIDialogs::showInfo(this, "Success", QString("Course '%1' updated successfully!").arg(name));
+    } else {  // Add new course
+        Course course;
+        course.name = name;
+        course.day = day;
+        course.startTime = startTime;
+        course.endTime = endTime;
+        course.classroom = classroom;
+        courses.append(course);
+        refreshTable();
+        clearForm();
+        saveCoursesToFile();
+        UIDialogs::showInfo(this, "Success", QString("Course '%1' added successfully!").arg(name));
+    }
+}
+
+// Delete course and update edit mode state if needed
+void ManageCoursesPage::onDeleteCourse(int row) {
+    if (row >= 0 && row < courses.size()) {
+        QString name = courses[row].name;
+        courses.removeAt(row);
+
+        if (editingRow == row) {  // Deleted the course being edited
+            editingRow = -1;
+            clearForm();
+        } else if (editingRow > row) {  // Deleted a course before the one being edited
+            editingRow--;  // Adjust for index shift
+        }
+
+        refreshTable();
+        saveCoursesToFile();
+        UIDialogs::showInfo(this, "Deleted", QString("Course '%1' deleted!").arg(name));
+    }
+}
+
+// Rebuild table with all courses (creates checkboxes, text items, and action buttons)
+void ManageCoursesPage::refreshTable() {
+    if (!ui->coursetable) return;
+
+    ui->coursetable->setRowCount(courses.size());
+    for (int row = 0; row < courses.size(); ++row) {
+        ui->coursetable->setRowHeight(row, 40);
+    }
+
+    for (int row = 0; row < courses.size(); ++row) {
+        // Column 0: Checkbox widget
+        QWidget *checkBoxWidget = new QWidget();
+        checkBoxWidget->setStyleSheet("background-color: transparent;");
+        QHBoxLayout *checkBoxLayout = new QHBoxLayout(checkBoxWidget);
+        checkBoxLayout->setContentsMargins(0, 0, 0, 0);
+        QCheckBox *checkBox = new QCheckBox();
+        checkBox->setStyleSheet(UIStyles::checkboxBlue());
+        checkBoxLayout->addWidget(checkBox);
+        checkBoxLayout->setAlignment(Qt::AlignCenter);
+        checkBoxLayout->setContentsMargins(0, 0, 0, 0);
+        checkBoxWidget->setLayout(checkBoxLayout);
+        ui->coursetable->setCellWidget(row, 0, checkBoxWidget);
+
+        // Columns 1-4: Course data (non-editable text items)
+        QTableWidgetItem *nameItem = new QTableWidgetItem(courses[row].name);
+        nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
+        nameItem->setForeground(QBrush(Qt::black));
+        ui->coursetable->setItem(row, 1, nameItem);
+
+        QTableWidgetItem *dayItem = new QTableWidgetItem(courses[row].day);
+        dayItem->setFlags(dayItem->flags() & ~Qt::ItemIsEditable);
+        dayItem->setForeground(QBrush(Qt::black));
+        ui->coursetable->setItem(row, 2, dayItem);
+
+        QString timeStr = QString("%1 - %2").arg(courses[row].startTime, courses[row].endTime);
+        QTableWidgetItem *timeItem = new QTableWidgetItem(timeStr);
+        timeItem->setFlags(timeItem->flags() & ~Qt::ItemIsEditable);
+        timeItem->setForeground(QBrush(Qt::black));
+        ui->coursetable->setItem(row, 3, timeItem);
+
+        QTableWidgetItem *classroomItem = new QTableWidgetItem(courses[row].classroom);
+        classroomItem->setFlags(classroomItem->flags() & ~Qt::ItemIsEditable);
+        classroomItem->setForeground(QBrush(Qt::black));
+        ui->coursetable->setItem(row, 4, classroomItem);
+
+        // Column 5: Action buttons (Edit and Delete)
+        QWidget *actionsWidget = new QWidget();
+        actionsWidget->setStyleSheet("background-color: transparent;");
+        QHBoxLayout *actionsLayout = new QHBoxLayout(actionsWidget);
+        actionsLayout->setContentsMargins(5, 0, 5, 0);
+        actionsLayout->setSpacing(5);
+        actionsLayout->setAlignment(Qt::AlignCenter);
+
+        QPushButton *editBtn = new QPushButton("✏️ Edit");
+        editBtn->setEnabled(false);
+        editBtn->setStyleSheet(UIStyles::blueButtonCompact());
+        connect(editBtn, &QPushButton::clicked, this, [this, row]() {
+            onEditCourse(row);
+        });
+
+        QPushButton *deleteBtn = new QPushButton("🗑️ Delete");
+        deleteBtn->setEnabled(false);
+        deleteBtn->setStyleSheet(UIStyles::redButtonCompact());
+        connect(deleteBtn, &QPushButton::clicked, this, [this, row]() {
+            if (UIDialogs::showConfirmation(this, "Confirm Delete",
+                QString("Are you sure you want to delete '%1'?").arg(courses[row].name))) {
+                onDeleteCourse(row);
+            }
+        });
+
+        // Checkbox toggle: enable/disable buttons and highlight row
+        connect(checkBox, &QCheckBox::toggled, this, [this, row, editBtn, deleteBtn, checkBoxWidget, actionsWidget](bool checked) {
+            editBtn->setEnabled(checked);
+            deleteBtn->setEnabled(checked);
+            QColor bgColor = checked ? QColor(232, 232, 232) : QColor(255, 255, 255);
+            QString bgColorStr = checked ? UIColors::BACKGROUND_SELECTED_ROW : UIColors::TRANSPARENT;
+            if (checkBoxWidget) {
+                checkBoxWidget->setStyleSheet(QString("background-color: %1;").arg(bgColorStr));
+            }
+            for (int col = 1; col < 5; ++col) {
+                if (ui->coursetable->item(row, col)) {
+                    ui->coursetable->item(row, col)->setBackground(QBrush(bgColor));
+                }
+            }
+            if (actionsWidget) {
+                actionsWidget->setStyleSheet(QString("background-color: %1;").arg(bgColorStr));
+            }
+        });
+
+        actionsLayout->addWidget(editBtn);
+        actionsLayout->addWidget(deleteBtn);
+        actionsWidget->setLayout(actionsLayout);
+        ui->coursetable->setCellWidget(row, 5, actionsWidget);
+    }
+
+    if (ui->courseCountLabel) {  // Update course count display
+        ui->courseCountLabel->setText(QString("View & Manage Courses (%1)").arg(courses.size()));
+    }
+}
+
+// Clear all form fields and exit edit mode
+void ManageCoursesPage::clearForm() {
+    if (ui->courseNameInput) ui->courseNameInput->clear();
+    if (ui->classroomInput) ui->classroomInput->clear();
+    if (ui->startTimeLabel) ui->startTimeLabel->setCurrentIndex(0);
+    if (ui->endTimeInput) ui->endTimeInput->setCurrentIndex(0);
+    if (ui->dayCombo) ui->dayCombo->setCurrentIndex(0);
+    if (ui->courseNameInput) ui->courseNameInput->setFocus();
+    editingRow = -1;
+    if (ui->addCourseBtn) {
+        ui->addCourseBtn->setText("+ Add Course");
+    }
+}
+
+// Load course data into form for editing
+void ManageCoursesPage::onEditCourse(int row) {
+    if (row >= 0 && row < courses.size()) {
+        editingRow = row;
+        const Course &course = courses[row];
+        if (ui->courseNameInput) ui->courseNameInput->setText(course.name);
+        if (ui->dayCombo) {
+            int dayIndex = ui->dayCombo->findText(course.day);
+            if (dayIndex >= 0) ui->dayCombo->setCurrentIndex(dayIndex);
+        }
+        if (ui->startTimeLabel) {
+            int startIndex = ui->startTimeLabel->findText(course.startTime);
+            if (startIndex >= 0) ui->startTimeLabel->setCurrentIndex(startIndex);
+        }
+        if (ui->endTimeInput) {
+            int endIndex = ui->endTimeInput->findText(course.endTime);
+            if (endIndex >= 0) ui->endTimeInput->setCurrentIndex(endIndex);
+        }
+        if (ui->classroomInput) ui->classroomInput->setText(course.classroom);
+        if (ui->addCourseBtn) {
+            ui->addCourseBtn->setText("Confirm Edit");
+        }
+        if (ui->courseNameInput) ui->courseNameInput->setFocus();
+    }
+}
+
+// Show loading dialog then generate timetable
+void ManageCoursesPage::onGenerateTimetable() {
+    if (courses.isEmpty()) {
+        UIDialogs::showWarning(this, "No Courses", "Please add at least one course first!");
+        return;
+    }
+    if (!loadingDialog) {
+        loadingDialog = new LoadingDialog(this);
+        connect(loadingDialog, &LoadingDialog::loadingComplete, this, &ManageCoursesPage::onLoadingComplete);
+    }
+    loadingDialog->startLoading();
+    loadingDialog->exec();
+}
+
+// Create and show timetable window with course data
+void ManageCoursesPage::onLoadingComplete() {
+    if (timetableWindow) {
+        delete timetableWindow;
+        timetableWindow = nullptr;
+    }
+    timetableWindow = new TIMETABLE(this);
+    timetableWindow->setCoursesData(courses);
+    timetableWindow->show();
+    timetableWindow->raise();
+    timetableWindow->activateWindow();
+}
+
+// View timetable directly without loading dialog
+void ManageCoursesPage::onViewTimetable() {
+    if (courses.isEmpty()) {
+        UIDialogs::showWarning(this, "No Courses", "Please add courses first!");
+        return;
+    }
+    if (timetableWindow) {
+        delete timetableWindow;
+        timetableWindow = nullptr;
+    }
+    timetableWindow = new TIMETABLE(this);
+    timetableWindow->setCoursesData(courses);
+    timetableWindow->show();
+    timetableWindow->raise();
+    timetableWindow->activateWindow();
+}
+
+// Save all courses to file (format: name|day|startTime|endTime|classroom)
+void ManageCoursesPage::saveCoursesToFile()
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString filename = QString("%1/courses_%2.txt").arg(appDir, currentUser);
+    QFile file(filename);
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        UIDialogs::showWarning(this, "File Error", "Could not save course data to file!");
+        return;
+    }
+
+    QTextStream out(&file);
+    for (const Course &course : courses) {
+        out << course.name << "|" << course.day << "|" << course.startTime << "|"
+            << course.endTime << "|" << course.classroom << "\n";
+    }
+    file.close();
+}
+
+// Load courses from file on startup
+void ManageCoursesPage::loadCoursesFromFile()
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString filename = QString("%1/courses_%2.txt").arg(appDir, currentUser);
+    QFile file(filename);
+
+    if (!file.exists()) return;  // Skip if file doesn't exist (first run)
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        UIDialogs::showWarning(this, "File Error", "Could not load course data from file!");
+        return;
+    }
+
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) continue;
+
+        QStringList parts = line.split("|");
+        if (parts.size() == 5) {
+            Course course;
+            course.name = parts[0].trimmed();
+            course.day = parts[1].trimmed();
+            course.startTime = parts[2].trimmed();
+            course.endTime = parts[3].trimmed();
+            course.classroom = parts[4].trimmed();
+            courses.append(course);
+        }
+    }
+    file.close();
+    refreshTable();
+}
+
+// Linear search - Find courses matching search text (checks name, day, time, classroom)
+LinkedList<int> ManageCoursesPage::linearSearchCourses(const QString &searchText)
+{
+    LinkedList<int> matchIndices;
+    QString lowerSearchText = searchText.toLower();
+
+    for (int i = 0; i < courses.size(); ++i) {
+        bool matchFound = false;
+        if (courses[i].name.toLower().contains(lowerSearchText)) matchFound = true;
+        if (courses[i].day.toLower().contains(lowerSearchText)) matchFound = true;
+        if (courses[i].startTime.toLower().contains(lowerSearchText)) matchFound = true;
+        if (courses[i].endTime.toLower().contains(lowerSearchText)) matchFound = true;
+        if (courses[i].classroom.toLower().contains(lowerSearchText)) matchFound = true;
+        if (matchFound) matchIndices.append(i);
+    }
+    return matchIndices;
+}
+
+// QuickSort - Sort courses by name/day/time/classroom
+void ManageCoursesPage::quickSortCourses(int sortBy)
+{
+    if (courses.isEmpty()) return;
+
+    auto compare = [this, sortBy](const Course& c1, const Course& c2) -> bool {
+        switch (sortBy) {
+            case 0: return c1.name.toLower() < c2.name.toLower();  // Sort by name
+            case 1: {  // Sort by day
+                QStringList dayOrder = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+                int day1Index = dayOrder.indexOf(c1.day);
+                int day2Index = dayOrder.indexOf(c2.day);
+                if (day1Index == -1) day1Index = 999;
+                if (day2Index == -1) day2Index = 999;
+                return day1Index < day2Index;
+            }
+            case 2: return timeToInt(c1.startTime) < timeToInt(c2.startTime);  // Sort by time
+            case 3: return c1.classroom.toLower() < c2.classroom.toLower();  // Sort by classroom
+            default: return false;
+        }
+    };
+
+    courses.quickSort(compare);
+    refreshTable();
+    saveCoursesToFile();
+}
+
+// Search courses and show matching results
+void ManageCoursesPage::onSearchCourse()
+{
+    QString searchText = searchInput->text().trimmed();
+    if (searchText.isEmpty()) {
+        UIDialogs::showWarning(this, "Search Error", "Please enter search text!");
+        return;
+    }
+
+    LinkedList<int> matchIndices = linearSearchCourses(searchText);
+    if (matchIndices.isEmpty()) {
+        UIDialogs::showInfo(this, "No Results", QString("No courses found matching '%1'").arg(searchText));
+        return;
+    }
+
+    LinkedList<Course> originalCourses = courses;
+    courses.clear();
+    for (int i = 0; i < matchIndices.size(); ++i) {
+        courses.append(originalCourses[matchIndices[i]]);
+    }
+    refreshTable();
+    courses = originalCourses;
+    UIDialogs::showInfo(this, "Search Results",
+        QString("Found %1 course(s) matching '%2'\n\nClick 'Clear Search' to show all courses again.")
+            .arg(matchIndices.size()).arg(searchText));
+}
+
+// Clear search and show all courses
+void ManageCoursesPage::onClearSearch()
+{
+    searchInput->clear();
+    refreshTable();
+    UIDialogs::showInfo(this, "Search Cleared", "Showing all courses.");
+}
+
+// Sort courses by selected criteria
+void ManageCoursesPage::onSortCourses(int index)
+{
+    if (courses.isEmpty()) {
+        UIDialogs::showWarning(this, "Sort Error", "No courses to sort!");
+        return;
+    }
+    if (index == 0) return;  // Ignore "Select Sort Option"
+
+    quickSortCourses(index - 1);
+
+    QString sortCriteria;
+    switch (index) {
+        case 1: sortCriteria = "Name"; break;
+        case 2: sortCriteria = "Day"; break;
+        case 3: sortCriteria = "Time"; break;
+        case 4: sortCriteria = "Classroom"; break;
+    }
+    UIDialogs::showInfo(this, "Sort Complete", QString("Courses sorted by %1!").arg(sortCriteria));
+}
+
+
