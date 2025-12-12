@@ -30,7 +30,8 @@ HEADERS += \
     signupwindow.h \
     timetable.h \
     loadingdialog.h \
-    uistyles.h
+    uistyles.h \
+    datastructures.h
 
 FORMS += \
     mainwindow.ui \

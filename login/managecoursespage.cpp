@@ -1001,14 +1001,14 @@ void ManageCoursesPage::loadCoursesFromFile()
  *            in course name, day, time, or classroom
  *
  * @param searchText: The text to search for
- * @return: Vector of indices of matching courses
+ * @return: LinkedList of indices of matching courses
  *
  * Time Complexity: O(n) where n is number of courses
  * Space Complexity: O(m) where m is number of matches
  */
-QVector<int> ManageCoursesPage::linearSearchCourses(const QString &searchText)
+LinkedList<int> ManageCoursesPage::linearSearchCourses(const QString &searchText)
 {
-    QVector<int> matchIndices;  // Store indices of matching courses
+    LinkedList<int> matchIndices;  // Store indices of matching courses
     QString lowerSearchText = searchText.toLower();  // Convert to lowercase for case-insensitive search
 
     // -------------------------------------------------------------------------
@@ -1043,7 +1043,7 @@ QVector<int> ManageCoursesPage::linearSearchCourses(const QString &searchText)
             matchFound = true;
         }
 
-        // If match found, add index to result vector
+        // If match found, add index to result LinkedList
         if (matchFound) {
             matchIndices.append(i);
         }
@@ -1053,9 +1053,9 @@ QVector<int> ManageCoursesPage::linearSearchCourses(const QString &searchText)
 }
 
 /**
- * Bubble Sort Algorithm [NOT from Qt UI]
- * Purpose: Sort courses array using bubble sort algorithm
- * Algorithm: Repeatedly swap adjacent elements if they are in wrong order
+ * QuickSort Algorithm [NOT from Qt UI]
+ * Purpose: Sort courses array using QuickSort algorithm
+ * Algorithm: Divide-and-conquer recursive sorting with pivot partitioning
  *
  * @param sortBy: Sorting criteria
  *                0 = Sort by Name (A-Z)
@@ -1063,79 +1063,54 @@ QVector<int> ManageCoursesPage::linearSearchCourses(const QString &searchText)
  *                2 = Sort by Time (Early-Late)
  *                3 = Sort by Classroom (A-Z)
  *
- * Time Complexity: O(n²) where n is number of courses
- * Space Complexity: O(1) - sorts in place
+ * Time Complexity: O(n log n) average, O(n²) worst case
+ * Space Complexity: O(log n) - recursive call stack
  */
-void ManageCoursesPage::bubbleSortCourses(int sortBy)
+void ManageCoursesPage::quickSortCourses(int sortBy)
 {
-    int n = courses.size();
+    if (courses.isEmpty()) return;
 
     // -------------------------------------------------------------------------
-    // Bubble Sort: Outer loop - number of passes
+    // QuickSort: Use comparison function based on sort criteria
     // -------------------------------------------------------------------------
-    for (int i = 0; i < n - 1; ++i) {
 
-        // -------------------------------------------------------------------------
-        // Inner loop - compare adjacent elements
-        // -------------------------------------------------------------------------
-        for (int j = 0; j < n - i - 1; ++j) {
+    // Define comparison function using lambda
+    auto compare = [this, sortBy](const Course& c1, const Course& c2) -> bool {
+        switch (sortBy) {
+            case 0: // Sort by course name (A-Z)
+                return c1.name.toLower() < c2.name.toLower();
 
-            bool shouldSwap = false;
+            case 1: // Sort by day (Monday to Sunday)
+            {
+                // Define day order
+                QStringList dayOrder = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+                int day1Index = dayOrder.indexOf(c1.day);
+                int day2Index = dayOrder.indexOf(c2.day);
 
-            // Determine if swap is needed based on sort criteria
-            switch (sortBy) {
-                case 0: // Sort by course name (A-Z)
-                    if (courses[j].name.toLower() > courses[j + 1].name.toLower()) {
-                        shouldSwap = true;
-                    }
-                    break;
+                // If not found, put at end
+                if (day1Index == -1) day1Index = 999;
+                if (day2Index == -1) day2Index = 999;
 
-                case 1: // Sort by day (Monday to Sunday)
-                {
-                    // Define day order
-                    QStringList dayOrder = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
-                    int day1Index = dayOrder.indexOf(courses[j].day);
-                    int day2Index = dayOrder.indexOf(courses[j + 1].day);
-
-                    // If not found, put at end
-                    if (day1Index == -1) day1Index = 999;
-                    if (day2Index == -1) day2Index = 999;
-
-                    if (day1Index > day2Index) {
-                        shouldSwap = true;
-                    }
-                    break;
-                }
-
-                case 2: // Sort by start time (Early to Late)
-                {
-                    int time1 = timeToInt(courses[j].startTime);
-                    int time2 = timeToInt(courses[j + 1].startTime);
-
-                    if (time1 > time2) {
-                        shouldSwap = true;
-                    }
-                    break;
-                }
-
-                case 3: // Sort by classroom (A-Z)
-                    if (courses[j].classroom.toLower() > courses[j + 1].classroom.toLower()) {
-                        shouldSwap = true;
-                    }
-                    break;
+                return day1Index < day2Index;
             }
 
-            // -------------------------------------------------------------------------
-            // Swap if needed
-            // -------------------------------------------------------------------------
-            if (shouldSwap) {
-                // Swap courses[j] and courses[j+1]
-                Course temp = courses[j];
-                courses[j] = courses[j + 1];
-                courses[j + 1] = temp;
+            case 2: // Sort by start time (Early to Late)
+            {
+                int time1 = timeToInt(c1.startTime);
+                int time2 = timeToInt(c2.startTime);
+                return time1 < time2;
             }
+
+            case 3: // Sort by classroom (A-Z)
+                return c1.classroom.toLower() < c2.classroom.toLower();
+
+            default:
+                return false;
         }
-    }
+    };
+
+    // Call QuickSort on the LinkedList
+    courses.quickSort(compare);
 
     // Refresh table to show sorted data
     refreshTable();
@@ -1161,7 +1136,7 @@ void ManageCoursesPage::onSearchCourse()
     }
 
     // Use linear search algorithm to find matching courses
-    QVector<int> matchIndices = linearSearchCourses(searchText);
+    LinkedList<int> matchIndices = linearSearchCourses(searchText);
 
     // If no matches found
     if (matchIndices.isEmpty()) {
@@ -1170,12 +1145,12 @@ void ManageCoursesPage::onSearchCourse()
     }
 
     // Create temporary filtered course list
-    QVector<Course> originalCourses = courses;  // Save original list
+    LinkedList<Course> originalCourses = courses;  // Save original list
     courses.clear();  // Clear current list
 
     // Add only matching courses
-    for (int index : matchIndices) {
-        courses.append(originalCourses[index]);
+    for (int i = 0; i < matchIndices.size(); ++i) {
+        courses.append(originalCourses[matchIndices[i]]);
     }
 
     // Refresh table to show search results
@@ -1231,8 +1206,8 @@ void ManageCoursesPage::onSortCourses(int index)
         return;
     }
 
-    // Use bubble sort algorithm (index - 1 because first option is placeholder)
-    bubbleSortCourses(index - 1);
+    // Use QuickSort algorithm (index - 1 because first option is placeholder)
+    quickSortCourses(index - 1);
 
     // Show success message
     QString sortCriteria;

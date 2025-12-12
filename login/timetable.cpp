@@ -59,7 +59,7 @@ TIMETABLE::~TIMETABLE()
 
 // This gets called when user clicks "Generate Timetable" button
 // Main job: take the courses and display them on the timetable
-void TIMETABLE::setCoursesData(const QVector<Course> &courses)
+void TIMETABLE::setCoursesData(const LinkedList<Course> &courses)
 {
     coursesData = courses;  // store the courses locally
     allCombinations.clear();  // clear any old combinations
@@ -91,7 +91,8 @@ void TIMETABLE::populateTimetable()
     QColor defaultColor("#2d5a8c");
 
     // Process each course and create spanning cells
-    for (const Course &course : coursesData) {
+    for (int i = 0; i < coursesData.size(); ++i) {
+        const Course &course = coursesData[i];
         int row = dayToRow(course.day);
         int startCol = timeToColumn(course.startTime);
         int endCol = timeToColumn(course.endTime);
@@ -150,7 +151,8 @@ void TIMETABLE::updateStatistics()
 int TIMETABLE::calculateTotalHours()
 {
     int total = 0;
-    for (const Course &course : coursesData) {
+    for (int i = 0; i < coursesData.size(); ++i) {
+        const Course &course = coursesData[i];
         int start = timeToColumn(course.startTime);
         int end = timeToColumn(course.endTime);
         if (start >= 0 && end >= 0) {
@@ -226,14 +228,15 @@ int TIMETABLE::timeToColumn(const QString &time)
 
 int TIMETABLE::dayToRow(const QString &day)
 {
-    QMap<QString, int> dayMap;
-    dayMap["Monday"] = 0;
-    dayMap["Tuesday"] = 1;
-    dayMap["Wednesday"] = 2;
-    dayMap["Thursday"] = 3;
-    dayMap["Friday"] = 4;
-    dayMap["Saturday"] = 5;
-    dayMap["Sunday"] = 6;
+    // Manual hash table implementation to replace QMap
+    HashTable<QString, int> dayMap;
+    dayMap.insert("Monday", 0);
+    dayMap.insert("Tuesday", 1);
+    dayMap.insert("Wednesday", 2);
+    dayMap.insert("Thursday", 3);
+    dayMap.insert("Friday", 4);
+    dayMap.insert("Saturday", 5);
+    dayMap.insert("Sunday", 6);
 
     return dayMap.value(day, -1);
 }
@@ -376,39 +379,46 @@ void TIMETABLE::onDelete()
 void TIMETABLE::generateAllCombinations()
 {
     // Group courses by their exact name and other details to identify unique vs duplicate entries
-    QMap<QString, QVector<Course>> courseGroups;
+    HashTable<QString, LinkedList<Course>> courseGroups;
 
-    for (const Course &course : coursesData) {
-        // Create a unique key based on name, day, time, and classroom
-        QString key = QString("%1|%2|%3-%4|%5")
-                          .arg(course.name)
-                          .arg(course.day)
-                          .arg(course.startTime)
-                          .arg(course.endTime)
-                          .arg(course.classroom);
+    for (int i = 0; i < coursesData.size(); ++i) {
+        const Course &course = coursesData[i];
 
         // Check if this exact course already exists in any group
         bool found = false;
-        for (auto &group : courseGroups[course.name]) {
-            if (group.day == course.day &&
-                group.startTime == course.startTime &&
-                group.endTime == course.endTime &&
-                group.classroom == course.classroom) {
-                found = true;
-                break;
+        if (courseGroups.contains(course.name)) {
+            LinkedList<Course> existingGroup = courseGroups.value(course.name);
+            for (int j = 0; j < existingGroup.size(); ++j) {
+                const Course &existing = existingGroup[j];
+                if (existing.day == course.day &&
+                    existing.startTime == course.startTime &&
+                    existing.endTime == course.endTime &&
+                    existing.classroom == course.classroom) {
+                    found = true;
+                    break;
+                }
             }
         }
 
         // Only add if not duplicate
         if (!found) {
-            courseGroups[course.name].append(course);
+            if (!courseGroups.contains(course.name)) {
+                LinkedList<Course> newGroup;
+                newGroup.append(course);
+                courseGroups.insert(course.name, newGroup);
+            } else {
+                LinkedList<Course> existingGroup = courseGroups.value(course.name);
+                existingGroup.append(course);
+                courseGroups.insert(course.name, existingGroup);
+            }
         }
     }
 
     // Check if all courses have unique names or if there are multiple options
     bool hasMultipleOptions = false;
-    for (auto it = courseGroups.begin(); it != courseGroups.end(); ++it) {
-        if (it.value().size() > 1) {
+    LinkedList<QString> keys = courseGroups.keys();
+    for (int i = 0; i < keys.size(); ++i) {
+        if (courseGroups.value(keys[i]).size() > 1) {
             hasMultipleOptions = true;
             break;
         }
@@ -416,32 +426,35 @@ void TIMETABLE::generateAllCombinations()
 
     // If no multiple options, just create one combination with all unique courses
     if (!hasMultipleOptions) {
-        QVector<Course> uniqueCourses;
-        for (auto it = courseGroups.begin(); it != courseGroups.end(); ++it) {
-            uniqueCourses.append(it.value());
+        LinkedList<Course> uniqueCourses;
+        for (int i = 0; i < keys.size(); ++i) {
+            LinkedList<Course> group = courseGroups.value(keys[i]);
+            for (int j = 0; j < group.size(); ++j) {
+                uniqueCourses.append(group[j]);
+            }
         }
         allCombinations.append(uniqueCourses);
         return;
     }
 
     // Otherwise, generate combinations for courses with multiple time options
-    QList<QVector<Course>> groups;
-    for (auto it = courseGroups.begin(); it != courseGroups.end(); ++it) {
-        groups.append(it.value());
+    LinkedList<LinkedList<Course>> groups;
+    for (int i = 0; i < keys.size(); ++i) {
+        groups.append(courseGroups.value(keys[i]));
     }
 
     if (groups.isEmpty()) return;
 
     // use recursion to try all combinations (including conflicting ones)
-    QVector<Course> currentCombination;
+    LinkedList<Course> currentCombination;
     generateCombinationsRecursive(groups, 0, currentCombination);
 }
 
 // This is where the magic happens - recursively builds all combinations
 // Think of it like a decision tree: for each course, try all its time options
-void TIMETABLE::generateCombinationsRecursive(const QList<QVector<Course>> &groups,
+void TIMETABLE::generateCombinationsRecursive(const LinkedList<LinkedList<Course>> &groups,
                                                int groupIndex,
-                                               QVector<Course> &currentCombination)
+                                               LinkedList<Course> &currentCombination)
 {
     // done! we've picked one option for each course
     if (groupIndex >= groups.size()) {
@@ -452,8 +465,9 @@ void TIMETABLE::generateCombinationsRecursive(const QList<QVector<Course>> &grou
     }
 
     // try each possible time slot for this course
-    const QVector<Course> &currentGroup = groups[groupIndex];
-    for (const Course &course : currentGroup) {
+    const LinkedList<Course> &currentGroup = groups[groupIndex];
+    for (int i = 0; i < currentGroup.size(); ++i) {
+        const Course &course = currentGroup[i];
         currentCombination.append(course);  // try this option
 
         // recursively fill in the rest of the courses
@@ -465,7 +479,7 @@ void TIMETABLE::generateCombinationsRecursive(const QList<QVector<Course>> &grou
 }
 
 // Check if a combination of courses has any time conflicts
-bool TIMETABLE::hasConflict(const QVector<Course> &combination)
+bool TIMETABLE::hasConflict(const LinkedList<Course> &combination)
 {
     for (int i = 0; i < combination.size(); ++i) {
         for (int j = i + 1; j < combination.size(); ++j) {
@@ -499,7 +513,7 @@ void TIMETABLE::displayCurrentCombination()
     }
 
     // Temporarily set coursesData to the current combination
-    QVector<Course> originalData = coursesData;
+    LinkedList<Course> originalData = coursesData;
     coursesData = allCombinations[currentCombinationIndex];
 
     // Populate the timetable with this combination

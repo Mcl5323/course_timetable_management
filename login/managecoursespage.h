@@ -9,8 +9,8 @@
 #define MANAGECOURSESPAGE_H
 
 #include <QDialog>
-#include <QVector>
 #include <QString>
+#include "datastructures.h"  // Manual data structures implementation
 
 class MainWindow;
 class TIMETABLE;
@@ -160,24 +160,25 @@ private:
      * Purpose: Linear search to find courses matching search criteria
      * Returns: List of indices of matching courses
      */
-    QVector<int> linearSearchCourses(const QString &searchText);
+    LinkedList<int> linearSearchCourses(const QString &searchText);
 
     /**
      * Sort Algorithm [NOT from Qt UI]
-     * Purpose: Bubble sort to sort courses by different criteria
+     * Purpose: QuickSort to sort courses by different criteria
      * Parameters: sortBy - 0=Name, 1=Day, 2=Time, 3=Classroom
      */
-    void bubbleSortCourses(int sortBy);
+    void quickSortCourses(int sortBy);
 
     // Private member variables
 
     Ui::ManageCoursesPage *ui;  // Pointer to UI components
 
     /**
-     * Vector (dynamic array) storing all course data
+     * LinkedList (manually implemented) storing all course data
      * Each element is a Course struct containing course details
+     * Uses doubly linked list for efficient insertion/deletion
      */
-    QVector<Course> courses;
+    LinkedList<Course> courses;
 
     /**
      * Search and Sort UI Components [NOT from Qt Designer]

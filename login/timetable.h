@@ -2,11 +2,8 @@
 #define TIMETABLE_H
 
 #include <QDialog>
-#include <QVector>
 #include <QString>
-#include <QMap>
-#include <QPair>
-#include <QSet>
+#include "datastructures.h"  // Manual data structures implementation
 
 namespace Ui {
 class TIMETABLE;
@@ -23,7 +20,7 @@ public:
     ~TIMETABLE();
 
     // Set course data to populate timetable
-    void setCoursesData(const QVector<Course> &courses);
+    void setCoursesData(const LinkedList<Course> &courses);
 
 private slots:
     void onSaveAs();
@@ -43,18 +40,18 @@ private:
 
     // New methods for generating all possible timetable combinations
     void generateAllCombinations();
-    void generateCombinationsRecursive(const QList<QVector<Course>> &groups,
+    void generateCombinationsRecursive(const LinkedList<LinkedList<Course>> &groups,
                                        int groupIndex,
-                                       QVector<Course> &currentCombination);
-    bool hasConflict(const QVector<Course> &combination);
+                                       LinkedList<Course> &currentCombination);
+    bool hasConflict(const LinkedList<Course> &combination);
     void displayCurrentCombination();
     void updatePageLabel();
 
     Ui::TIMETABLE *ui;
-    QVector<Course> coursesData;  // All courses added by user
+    LinkedList<Course> coursesData;  // All courses added by user
 
     // New members for handling multiple timetable combinations
-    QVector<QVector<Course>> allCombinations;  // All valid non-conflicting combinations
+    LinkedList<LinkedList<Course>> allCombinations;  // All valid non-conflicting combinations
     int currentCombinationIndex;  // Current page index
 };
 
