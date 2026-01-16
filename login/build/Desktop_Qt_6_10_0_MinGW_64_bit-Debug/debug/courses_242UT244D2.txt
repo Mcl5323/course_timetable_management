@@ -1,0 +1,5 @@
+TDS1123|Monday|8am|10am|clc2005
+TDS1123|Tuesday|2pm|4pm|clc2005
+TEH1123|Monday|12pm|2pm|clc1004
+TEH1123|Monday|3pm|5pm|clc2004
+TDS1123|Monday|9am|11am|clc2005

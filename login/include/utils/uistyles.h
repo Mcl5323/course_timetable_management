@@ -194,6 +194,26 @@ namespace UIStyles {
     }
 
     /**
+     * Green Button - For Export, Success actions
+     */
+    inline QString greenButton() {
+        return QString(
+            "QPushButton {"
+            "background-color: %1;"
+            "color: white;"
+            "border: none;"
+            "border-radius: 4px;"
+            "padding: 5px;"
+            "font-size: 11px;"
+            "font-weight: 600;"
+            "}"
+            "QPushButton:hover {"
+            "background-color: %2;"
+            "}"
+        ).arg(UIColors::GREEN_PRIMARY, UIColors::GREEN_HOVER);
+    }
+
+    /**
      * Checkbox - Blue theme with hover effects
      */
     inline QString checkboxBlue() {

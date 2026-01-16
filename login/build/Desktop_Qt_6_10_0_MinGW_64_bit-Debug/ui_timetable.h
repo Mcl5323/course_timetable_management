@@ -318,7 +318,7 @@ public:
         QTableWidgetItem *___qtablewidgetitem3 = timetableTable->horizontalHeaderItem(3);
         ___qtablewidgetitem3->setText(QCoreApplication::translate("TIMETABLE", "11.00am", nullptr));
         QTableWidgetItem *___qtablewidgetitem4 = timetableTable->horizontalHeaderItem(4);
-        ___qtablewidgetitem4->setText(QCoreApplication::translate("TIMETABLE", "12.00am", nullptr));
+        ___qtablewidgetitem4->setText(QCoreApplication::translate("TIMETABLE", "12.00pm", nullptr));
         QTableWidgetItem *___qtablewidgetitem5 = timetableTable->horizontalHeaderItem(5);
         ___qtablewidgetitem5->setText(QCoreApplication::translate("TIMETABLE", "1.00pm", nullptr));
         QTableWidgetItem *___qtablewidgetitem6 = timetableTable->horizontalHeaderItem(6);

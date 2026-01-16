@@ -29,6 +29,11 @@ TIMETABLE::TIMETABLE(QWidget *parent)
     connect(ui->nextPageBtn, &QPushButton::clicked, this, &TIMETABLE::onNextPage);
     connect(ui->deleteBtn, &QPushButton::clicked, this, &TIMETABLE::onDelete);
 
+    // Fix misleading button name: "Delete" -> "Close" (it just closes the window)
+    if (ui->deleteBtn) {
+        ui->deleteBtn->setText("Close");
+    }
+
     // Configure timetable table properties
     if (ui->timetableTable) {
         ui->timetableTable->setEditTriggers(QAbstractItemView::NoEditTriggers);  // Disable editing
@@ -178,11 +183,28 @@ int TIMETABLE::detectConflicts()
 int TIMETABLE::timeToColumn(const QString &time)
 {
     QString t = time.toLower().trimmed();
+
+    // Remove spaces
+    t = t.replace(" ", "");
+
     bool isPM = t.contains("pm");
 
     QString numStr = t;
-    numStr.remove("am").remove("pm").remove(".00");  // Clean up string
-    int hour = numStr.toInt();
+    // Remove time suffixes and decimal points
+    numStr.remove("am").remove("pm").remove(".00").remove(".");
+
+    // Handle empty string after removal
+    if (numStr.isEmpty()) {
+        return -1;
+    }
+
+    bool ok;
+    int hour = numStr.toInt(&ok);
+
+    // Check if conversion was successful
+    if (!ok) {
+        return -1;
+    }
 
     // Convert 12-hour format to 24-hour format
     if (isPM && hour != 12) {
@@ -191,7 +213,7 @@ int TIMETABLE::timeToColumn(const QString &time)
         hour = 0;  // 12am -> 0
     }
 
-    if (hour >= 8 && hour <= 21) {
+    if (hour >= 8 && hour <= 22) {  // Changed from 21 to 22 to include 10pm
         return hour - 8;  // Timetable starts at 8am (column 0)
     }
 
@@ -322,13 +344,17 @@ void TIMETABLE::onTogglePage()
     updatePageLabel();
 }
 
-// Close timetable window
+// Close timetable window (renamed from onDelete for clarity)
 void TIMETABLE::onDelete()
 {
-    this->close();
+    this->close();  // This function just closes the window, not deletes anything
 }
 
+// Maximum number of combinations to prevent performance issues
+static const int MAX_COMBINATIONS = 100;
+
 // Generate all possible timetable combinations from courses with multiple time options
+// Now with limit to prevent exponential growth causing lag
 void TIMETABLE::generateAllCombinations()
 {
     HashTable<QString, LinkedList<Course>> courseGroups;  // Group courses by name
@@ -398,13 +424,40 @@ void TIMETABLE::generateAllCombinations()
 
     LinkedList<Course> currentCombination;
     generateCombinationsRecursive(groups, 0, currentCombination);
+
+    // Sort combinations: non-conflicting first, then conflicting
+    LinkedList<LinkedList<Course>> nonConflicting;
+    LinkedList<LinkedList<Course>> conflicting;
+
+    for (int i = 0; i < allCombinations.size(); ++i) {
+        if (hasConflict(allCombinations[i])) {
+            conflicting.append(allCombinations[i]);
+        } else {
+            nonConflicting.append(allCombinations[i]);
+        }
+    }
+
+    // Rebuild allCombinations with non-conflicting first
+    allCombinations.clear();
+    for (int i = 0; i < nonConflicting.size(); ++i) {
+        allCombinations.append(nonConflicting[i]);
+    }
+    for (int i = 0; i < conflicting.size(); ++i) {
+        allCombinations.append(conflicting[i]);
+    }
 }
 
 // Recursive function to generate all combinations (backtracking algorithm)
+// Limited to MAX_COMBINATIONS to prevent performance issues
 void TIMETABLE::generateCombinationsRecursive(const LinkedList<LinkedList<Course>> &groups,
                                                int groupIndex,
                                                LinkedList<Course> &currentCombination)
 {
+    // Stop if we've reached the maximum number of combinations
+    if (allCombinations.size() >= MAX_COMBINATIONS) {
+        return;
+    }
+
     if (groupIndex >= groups.size()) {  // Base case: all courses selected
         allCombinations.append(currentCombination);
         return;
@@ -413,6 +466,11 @@ void TIMETABLE::generateCombinationsRecursive(const LinkedList<LinkedList<Course
     // Try each time option for current course
     const LinkedList<Course> &currentGroup = groups[groupIndex];
     for (int i = 0; i < currentGroup.size(); ++i) {
+        // Check limit before recursing
+        if (allCombinations.size() >= MAX_COMBINATIONS) {
+            return;
+        }
+
         const Course &course = currentGroup[i];
         currentCombination.append(course);  // Choose
         generateCombinationsRecursive(groups, groupIndex + 1, currentCombination);  // Explore
@@ -461,14 +519,20 @@ void TIMETABLE::displayCurrentCombination()
 }
 
 // Update page label and navigation buttons
+// Now shows conflict status for each combination
 void TIMETABLE::updatePageLabel()
 {
     if (!allCombinations.isEmpty()) {
-        // Update page number display
+        // Check if current combination has conflicts
+        bool currentHasConflict = hasConflict(allCombinations[currentCombinationIndex]);
+        QString conflictStatus = currentHasConflict ? " [CONFLICT]" : " [OK]";
+
+        // Update page number display with conflict status
         if (ui->pageNumberLabel) {
-            ui->pageNumberLabel->setText(QString("%1/%2")
+            ui->pageNumberLabel->setText(QString("%1/%2%3")
                                          .arg(currentCombinationIndex + 1)
-                                         .arg(allCombinations.size()));
+                                         .arg(allCombinations.size())
+                                         .arg(conflictStatus));
         }
 
         // Show/hide navigation buttons based on number of combinations
@@ -482,10 +546,12 @@ void TIMETABLE::updatePageLabel()
             if (ui->pageNumberLabel) ui->pageNumberLabel->hide();
         }
 
-        // Update window title
-        this->setWindowTitle(QString("View Timetable - Page %1 of %2")
+        // Update window title with conflict status
+        QString titleConflict = currentHasConflict ? " - HAS CONFLICTS" : " - No Conflicts";
+        this->setWindowTitle(QString("View Timetable - Page %1 of %2%3")
                              .arg(currentCombinationIndex + 1)
-                             .arg(allCombinations.size()));
+                             .arg(allCombinations.size())
+                             .arg(titleConflict));
     } else {
         if (ui->pageNumberLabel) {
             ui->pageNumberLabel->setText("1/1");

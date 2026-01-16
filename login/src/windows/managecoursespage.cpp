@@ -20,15 +20,20 @@
 #include <QTextStream>
 #include <QDir>
 #include <QCoreApplication>
+#include <QFileDialog>
 
 // Constructor - Initialize course management page
+// Note: Initialization order must match declaration order in header file
 ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::ManageCoursesPage)
+    , isSearching(false)
     , currentUser(currentUser)
     , editingRow(-1)
+    , selectedRow(-1)
     , timetableWindow(nullptr)
-    , loadingDialog(nullptr) {
+    , loadingDialog(nullptr)
+    , timetableGenerated(false) {
 
     ui->setupUi(this);
     this->setWindowTitle("Manage Courses");
@@ -104,8 +109,23 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
     sortCombo->addItems({"Select Sort Option", "Sort by Name (A-Z)", "Sort by Day (Mon-Sun)", "Sort by Time (Early-Late)", "Sort by Classroom (A-Z)"});
     sortCombo->setStyleSheet(UIStyles::comboBoxGreen());
 
+    // Create Import/Export buttons
+    exportBtn = new QPushButton("Export CSV", this);
+    exportBtn->setGeometry(50, 650, 120, 35);
+    exportBtn->setStyleSheet(UIStyles::greenButton());
+
+    importBtn = new QPushButton("Import CSV", this);
+    importBtn->setGeometry(180, 650, 120, 35);
+    importBtn->setStyleSheet(UIStyles::blueButton());
+
     setupConnections();  // Connect all signals to slots
     loadCoursesFromFile();  // Load saved courses
+
+    // Disable View Timetable button until Generate is clicked
+    if (ui->viewTimetableBtn) {
+        ui->viewTimetableBtn->setEnabled(false);
+        ui->viewTimetableBtn->setToolTip("Please click 'Generate Timetable' first");
+    }
 }
 
 // Destructor - Clean up UI components
@@ -118,12 +138,36 @@ ManageCoursesPage::~ManageCoursesPage() {
 // Convert time string to 24-hour int (e.g., "2pm" -> 14) for comparison
 int ManageCoursesPage::timeToInt(const QString &time) {
     QString t = time.toLower().trimmed();
+
+    // Remove spaces
+    t = t.replace(" ", "");
+
     bool isPM = t.contains("pm");
+
     QString numStr = t;
-    numStr.remove("am").remove("pm");
-    int hour = numStr.toInt();
-    if (isPM && hour != 12) hour += 12;  // 2pm becomes 14
-    else if (!isPM && hour == 12) hour = 0;  // midnight edge case
+    // Remove time suffixes and decimal points
+    numStr.remove("am").remove("pm").remove(".00").remove(".");
+
+    // Handle empty string after removal
+    if (numStr.isEmpty()) {
+        return -1;
+    }
+
+    bool ok;
+    int hour = numStr.toInt(&ok);
+
+    // Check if conversion was successful
+    if (!ok) {
+        return -1;
+    }
+
+    // Convert 12-hour format to 24-hour format
+    if (isPM && hour != 12) {
+        hour += 12;  // 2pm becomes 14
+    } else if (!isPM && hour == 12) {
+        hour = 0;  // midnight edge case
+    }
+
     return hour;
 }
 
@@ -141,6 +185,8 @@ void ManageCoursesPage::setupConnections() {
     connect(searchBtn, &QPushButton::clicked, this, &ManageCoursesPage::onSearchCourse);
     connect(clearSearchBtn, &QPushButton::clicked, this, &ManageCoursesPage::onClearSearch);
     connect(sortCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ManageCoursesPage::onSortCourses);
+    connect(exportBtn, &QPushButton::clicked, this, &ManageCoursesPage::onExportCourses);
+    connect(importBtn, &QPushButton::clicked, this, &ManageCoursesPage::onImportCourses);
 }
 
 // Add or update course (editingRow == -1: add mode, >= 0: edit mode)
@@ -157,6 +203,16 @@ void ManageCoursesPage::onAddCourse() {
         ui->courseNameInput->setFocus();
         return;
     }
+    if (name.contains("|")) {
+        UIDialogs::showWarning(this, "Invalid Input", "Course name cannot contain the '|' character!");
+        ui->courseNameInput->setFocus();
+        return;
+    }
+    if (name.length() > 100) {
+        UIDialogs::showWarning(this, "Invalid Input", "Course name is too long (max 100 characters)!");
+        ui->courseNameInput->setFocus();
+        return;
+    }
     if (startTime.isEmpty()) {
         UIDialogs::showWarning(this, "Invalid Input", "Please select start time!");
         ui->startTimeLabel->setFocus();
@@ -169,6 +225,16 @@ void ManageCoursesPage::onAddCourse() {
     }
     if (classroom.isEmpty()) {
         UIDialogs::showWarning(this, "Invalid Input", "Please enter classroom!");
+        ui->classroomInput->setFocus();
+        return;
+    }
+    if (classroom.contains("|")) {
+        UIDialogs::showWarning(this, "Invalid Input", "Classroom cannot contain the '|' character!");
+        ui->classroomInput->setFocus();
+        return;
+    }
+    if (classroom.length() > 50) {
+        UIDialogs::showWarning(this, "Invalid Input", "Classroom name is too long (max 50 characters)!");
         ui->classroomInput->setFocus();
         return;
     }
@@ -190,6 +256,41 @@ void ManageCoursesPage::onAddCourse() {
         }
     }
 
+    // Create temporary course object for conflict check
+    Course newCourse;
+    newCourse.name = name;
+    newCourse.day = day;
+    newCourse.startTime = startTime;
+    newCourse.endTime = endTime;
+    newCourse.classroom = classroom;
+
+    // Check for time conflicts and warn user
+    LinkedList<Course> conflicts = getConflictingCourses(newCourse, editingRow);
+    if (!conflicts.isEmpty()) {
+        QString conflictList;
+        for (int i = 0; i < conflicts.size(); ++i) {
+            conflictList += QString("- %1 (%2 %3-%4)\n")
+                .arg(conflicts[i].name, conflicts[i].day, conflicts[i].startTime, conflicts[i].endTime);
+        }
+
+        // Ask user if they want to continue despite conflicts
+        QMessageBox::StandardButton reply = QMessageBox::question(
+            this, "Time Conflict Warning",
+            QString("This course conflicts with the following existing courses:\n\n%1\n"
+                    "Do you still want to add this course?").arg(conflictList),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+
+        if (reply == QMessageBox::No) {
+            return;  // User cancelled
+        }
+    }
+
+    // Exit search mode when adding/editing courses
+    if (isSearching) {
+        courses = allCourses;
+        isSearching = false;
+    }
+
     if (editingRow >= 0 && editingRow < courses.size()) {  // Update existing course
         courses[editingRow].name = name;
         courses[editingRow].day = day;
@@ -200,6 +301,14 @@ void ManageCoursesPage::onAddCourse() {
         refreshTable();
         clearForm();
         saveCoursesToFile();
+
+        // Disable View Timetable - need to regenerate after editing
+        timetableGenerated = false;
+        if (ui->viewTimetableBtn) {
+            ui->viewTimetableBtn->setEnabled(false);
+            ui->viewTimetableBtn->setToolTip("Course modified - please click 'Generate Timetable' again");
+        }
+
         UIDialogs::showInfo(this, "Success", QString("Course '%1' updated successfully!").arg(name));
     } else {  // Add new course
         Course course;
@@ -212,12 +321,26 @@ void ManageCoursesPage::onAddCourse() {
         refreshTable();
         clearForm();
         saveCoursesToFile();
+
+        // Disable View Timetable - need to regenerate after adding
+        timetableGenerated = false;
+        if (ui->viewTimetableBtn) {
+            ui->viewTimetableBtn->setEnabled(false);
+            ui->viewTimetableBtn->setToolTip("New course added - please click 'Generate Timetable' again");
+        }
+
         UIDialogs::showInfo(this, "Success", QString("Course '%1' added successfully!").arg(name));
     }
 }
 
 // Delete course and update edit mode state if needed
 void ManageCoursesPage::onDeleteCourse(int row) {
+    // Exit search mode when deleting courses
+    if (isSearching) {
+        courses = allCourses;
+        isSearching = false;
+    }
+
     if (row >= 0 && row < courses.size()) {
         QString name = courses[row].name;
         courses.removeAt(row);
@@ -231,6 +354,14 @@ void ManageCoursesPage::onDeleteCourse(int row) {
 
         refreshTable();
         saveCoursesToFile();
+
+        // Disable View Timetable - need to regenerate after deleting
+        timetableGenerated = false;
+        if (ui->viewTimetableBtn) {
+            ui->viewTimetableBtn->setEnabled(false);
+            ui->viewTimetableBtn->setToolTip("Course deleted - please click 'Generate Timetable' again");
+        }
+
         UIDialogs::showInfo(this, "Deleted", QString("Course '%1' deleted!").arg(name));
     }
 }
@@ -305,10 +436,34 @@ void ManageCoursesPage::refreshTable() {
             }
         });
 
-        // Checkbox toggle: enable/disable buttons and highlight row
+        // Checkbox toggle: enable/disable buttons and highlight row (SINGLE SELECTION MODE)
         connect(checkBox, &QCheckBox::toggled, this, [this, row, editBtn, deleteBtn, checkBoxWidget, actionsWidget](bool checked) {
+            // If this checkbox is checked, uncheck all other checkboxes (single selection)
+            if (checked) {
+                selectedRow = row;  // Save selected row for state preservation
+                for (int i = 0; i < ui->coursetable->rowCount(); ++i) {
+                    if (i != row) {  // Skip current row
+                        QWidget *otherCheckBoxWidget = ui->coursetable->cellWidget(i, 0);
+                        if (otherCheckBoxWidget) {
+                            QCheckBox *otherCheckBox = otherCheckBoxWidget->findChild<QCheckBox*>();
+                            if (otherCheckBox && otherCheckBox->isChecked()) {
+                                otherCheckBox->setChecked(false);  // Uncheck other checkboxes
+                            }
+                        }
+                    }
+                }
+            } else {
+                // If unchecked, clear selection
+                if (selectedRow == row) {
+                    selectedRow = -1;
+                }
+            }
+
+            // Enable/disable buttons for current row
             editBtn->setEnabled(checked);
             deleteBtn->setEnabled(checked);
+
+            // Highlight current row
             QColor bgColor = checked ? QColor(232, 232, 232) : QColor(255, 255, 255);
             QString bgColorStr = checked ? UIColors::BACKGROUND_SELECTED_ROW : UIColors::TRANSPARENT;
             if (checkBoxWidget) {
@@ -332,6 +487,17 @@ void ManageCoursesPage::refreshTable() {
 
     if (ui->courseCountLabel) {  // Update course count display
         ui->courseCountLabel->setText(QString("View & Manage Courses (%1)").arg(courses.size()));
+    }
+
+    // Restore checkbox selection state after refresh
+    if (selectedRow >= 0 && selectedRow < courses.size()) {
+        QWidget *checkBoxWidget = ui->coursetable->cellWidget(selectedRow, 0);
+        if (checkBoxWidget) {
+            QCheckBox *checkBox = checkBoxWidget->findChild<QCheckBox*>();
+            if (checkBox) {
+                checkBox->setChecked(true);  // Restore checked state
+            }
+        }
     }
 }
 
@@ -400,6 +566,13 @@ void ManageCoursesPage::onLoadingComplete() {
     timetableWindow->show();
     timetableWindow->raise();
     timetableWindow->activateWindow();
+
+    // Enable View Timetable button after generation
+    timetableGenerated = true;
+    if (ui->viewTimetableBtn) {
+        ui->viewTimetableBtn->setEnabled(true);
+        ui->viewTimetableBtn->setToolTip("View the generated timetable");
+    }
 }
 
 // View timetable directly without loading dialog
@@ -419,9 +592,95 @@ void ManageCoursesPage::onViewTimetable() {
     timetableWindow->activateWindow();
 }
 
+// Create backup of course data before saving
+void ManageCoursesPage::createBackup()
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString filename = QString("%1/courses_%2.txt").arg(appDir, currentUser);
+    QString backupFilename = QString("%1/courses_%2_backup.txt").arg(appDir, currentUser);
+
+    QFile originalFile(filename);
+    if (originalFile.exists()) {
+        // Remove old backup if exists
+        QFile::remove(backupFilename);
+        // Create new backup
+        originalFile.copy(backupFilename);
+    }
+}
+
+// Restore courses from backup file
+void ManageCoursesPage::restoreFromBackup()
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString backupFilename = QString("%1/courses_%2_backup.txt").arg(appDir, currentUser);
+
+    QFile backupFile(backupFilename);
+    if (!backupFile.exists()) {
+        UIDialogs::showWarning(this, "Restore Error", "No backup file found!");
+        return;
+    }
+
+    QString filename = QString("%1/courses_%2.txt").arg(appDir, currentUser);
+    QFile::remove(filename);
+    backupFile.copy(filename);
+
+    // Reload courses
+    courses.clear();
+    loadCoursesFromFile();
+    UIDialogs::showInfo(this, "Restore Complete", "Courses restored from backup!");
+}
+
+// Check if new course has time conflict with existing courses
+bool ManageCoursesPage::checkTimeConflict(const Course &newCourse, int excludeRow)
+{
+    for (int i = 0; i < courses.size(); ++i) {
+        if (i == excludeRow) continue;  // Skip the course being edited
+
+        const Course &existing = courses[i];
+        if (existing.day != newCourse.day) continue;  // Different days, no conflict
+
+        int newStart = timeToInt(newCourse.startTime);
+        int newEnd = timeToInt(newCourse.endTime);
+        int existStart = timeToInt(existing.startTime);
+        int existEnd = timeToInt(existing.endTime);
+
+        // Check for time overlap
+        if (newStart < existEnd && existStart < newEnd) {
+            return true;  // Conflict found
+        }
+    }
+    return false;
+}
+
+// Get list of courses that conflict with the new course
+LinkedList<Course> ManageCoursesPage::getConflictingCourses(const Course &newCourse, int excludeRow)
+{
+    LinkedList<Course> conflicts;
+
+    for (int i = 0; i < courses.size(); ++i) {
+        if (i == excludeRow) continue;
+
+        const Course &existing = courses[i];
+        if (existing.day != newCourse.day) continue;
+
+        int newStart = timeToInt(newCourse.startTime);
+        int newEnd = timeToInt(newCourse.endTime);
+        int existStart = timeToInt(existing.startTime);
+        int existEnd = timeToInt(existing.endTime);
+
+        if (newStart < existEnd && existStart < newEnd) {
+            conflicts.append(existing);
+        }
+    }
+    return conflicts;
+}
+
 // Save all courses to file (format: name|day|startTime|endTime|classroom)
 void ManageCoursesPage::saveCoursesToFile()
 {
+    // Create backup before saving
+    createBackup();
+
     QString appDir = QCoreApplication::applicationDirPath();
     QString filename = QString("%1/courses_%2.txt").arg(appDir, currentUser);
     QFile file(filename);
@@ -527,19 +786,31 @@ void ManageCoursesPage::onSearchCourse()
         return;
     }
 
+    // If already searching, restore all courses first
+    if (isSearching) {
+        courses = allCourses;
+    }
+
     LinkedList<int> matchIndices = linearSearchCourses(searchText);
     if (matchIndices.isEmpty()) {
         UIDialogs::showInfo(this, "No Results", QString("No courses found matching '%1'").arg(searchText));
         return;
     }
 
-    LinkedList<Course> originalCourses = courses;
-    courses.clear();
+    // Backup all courses before filtering
+    allCourses = courses;
+
+    // Filter courses to show only search results
+    LinkedList<Course> searchResults;
     for (int i = 0; i < matchIndices.size(); ++i) {
-        courses.append(originalCourses[matchIndices[i]]);
+        searchResults.append(courses[matchIndices[i]]);
     }
+    courses = searchResults;
+
+    // Mark as searching and refresh display
+    isSearching = true;
     refreshTable();
-    courses = originalCourses;
+
     UIDialogs::showInfo(this, "Search Results",
         QString("Found %1 course(s) matching '%2'\n\nClick 'Clear Search' to show all courses again.")
             .arg(matchIndices.size()).arg(searchText));
@@ -549,20 +820,53 @@ void ManageCoursesPage::onSearchCourse()
 void ManageCoursesPage::onClearSearch()
 {
     searchInput->clear();
-    refreshTable();
-    UIDialogs::showInfo(this, "Search Cleared", "Showing all courses.");
+
+    // If in search mode, restore all courses
+    if (isSearching) {
+        courses = allCourses;
+        isSearching = false;
+        refreshTable();
+        UIDialogs::showInfo(this, "Search Cleared", "Showing all courses.");
+    } else {
+        UIDialogs::showInfo(this, "No Active Search", "Already showing all courses.");
+    }
 }
 
 // Sort courses by selected criteria
+// Fix: When in search mode, restore all courses first, then sort, then re-apply search
 void ManageCoursesPage::onSortCourses(int index)
 {
+    if (index == 0) return;  // Ignore "Select Sort Option"
+
+    // If in search mode, restore all courses first then sort
+    QString currentSearchText;
+    if (isSearching) {
+        currentSearchText = searchInput->text().trimmed();
+        courses = allCourses;  // Restore all courses
+        isSearching = false;
+    }
+
     if (courses.isEmpty()) {
         UIDialogs::showWarning(this, "Sort Error", "No courses to sort!");
         return;
     }
-    if (index == 0) return;  // Ignore "Select Sort Option"
 
     quickSortCourses(index - 1);
+
+    // Re-apply search filter if was searching
+    if (!currentSearchText.isEmpty()) {
+        LinkedList<int> matchIndices = linearSearchCourses(currentSearchText);
+        if (!matchIndices.isEmpty()) {
+            allCourses = courses;  // Backup sorted courses
+            LinkedList<Course> searchResults;
+            for (int i = 0; i < matchIndices.size(); ++i) {
+                searchResults.append(courses[matchIndices[i]]);
+            }
+            courses = searchResults;
+            isSearching = true;
+            refreshTable();
+        }
+    }
 
     QString sortCriteria;
     switch (index) {
@@ -571,7 +875,172 @@ void ManageCoursesPage::onSortCourses(int index)
         case 3: sortCriteria = "Time"; break;
         case 4: sortCriteria = "Classroom"; break;
     }
-    UIDialogs::showInfo(this, "Sort Complete", QString("Courses sorted by %1!").arg(sortCriteria));
+    UIDialogs::showInfo(this, "Sort Complete", QString("All courses sorted by %1!").arg(sortCriteria));
 }
 
+// Export courses to CSV file
+void ManageCoursesPage::onExportCourses()
+{
+    if (courses.isEmpty()) {
+        UIDialogs::showWarning(this, "Export Error", "No courses to export!");
+        return;
+    }
+
+    QString fileName = QFileDialog::getSaveFileName(
+        this,
+        "Export Courses to CSV",
+        QDir::homePath() + "/courses_export.csv",
+        "CSV Files (*.csv);;All Files (*.*)"
+    );
+
+    if (fileName.isEmpty()) return;  // User cancelled
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        UIDialogs::showWarning(this, "Export Error", "Could not create export file!");
+        return;
+    }
+
+    QTextStream out(&file);
+
+    // Write CSV header
+    out << "Course Name,Day,Start Time,End Time,Classroom\n";
+
+    // Write course data
+    for (int i = 0; i < courses.size(); ++i) {
+        const Course &course = courses[i];
+        // Escape commas in fields by wrapping in quotes
+        out << "\"" << course.name << "\","
+            << "\"" << course.day << "\","
+            << "\"" << course.startTime << "\","
+            << "\"" << course.endTime << "\","
+            << "\"" << course.classroom << "\"\n";
+    }
+
+    file.close();
+    UIDialogs::showInfo(this, "Export Successful",
+        QString("Exported %1 course(s) to:\n%2").arg(courses.size()).arg(fileName));
+}
+
+// Import courses from CSV file
+void ManageCoursesPage::onImportCourses()
+{
+    QString fileName = QFileDialog::getOpenFileName(
+        this,
+        "Import Courses from CSV",
+        QDir::homePath(),
+        "CSV Files (*.csv);;Text Files (*.txt);;All Files (*.*)"
+    );
+
+    if (fileName.isEmpty()) return;  // User cancelled
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        UIDialogs::showWarning(this, "Import Error", "Could not open file!");
+        return;
+    }
+
+    QTextStream in(&file);
+    int importedCount = 0;
+    int skippedCount = 0;
+    bool isFirstLine = true;
+
+    // Exit search mode before importing
+    if (isSearching) {
+        courses = allCourses;
+        isSearching = false;
+    }
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) continue;
+
+        // Skip header line
+        if (isFirstLine) {
+            isFirstLine = false;
+            if (line.toLower().contains("course name") || line.toLower().contains("day")) {
+                continue;  // Skip CSV header
+            }
+        }
+
+        // Parse CSV line (handle quoted fields)
+        QStringList parts;
+        QString currentField;
+        bool inQuotes = false;
+
+        for (int i = 0; i < line.length(); ++i) {
+            QChar c = line[i];
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                parts.append(currentField.trimmed());
+                currentField.clear();
+            } else {
+                currentField += c;
+            }
+        }
+        parts.append(currentField.trimmed());  // Add last field
+
+        // Validate we have all 5 fields
+        if (parts.size() >= 5) {
+            Course course;
+            course.name = parts[0];
+            course.day = parts[1];
+            course.startTime = parts[2];
+            course.endTime = parts[3];
+            course.classroom = parts[4];
+
+            // Validate course data
+            if (course.name.isEmpty() || course.day.isEmpty() ||
+                course.startTime.isEmpty() || course.endTime.isEmpty()) {
+                skippedCount++;
+                continue;
+            }
+
+            // Check for exact duplicates
+            bool isDuplicate = false;
+            for (int i = 0; i < courses.size(); ++i) {
+                if (courses[i].name == course.name && courses[i].day == course.day &&
+                    courses[i].startTime == course.startTime &&
+                    courses[i].endTime == course.endTime &&
+                    courses[i].classroom == course.classroom) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (!isDuplicate) {
+                courses.append(course);
+                importedCount++;
+            } else {
+                skippedCount++;
+            }
+        } else {
+            skippedCount++;
+        }
+    }
+
+    file.close();
+
+    if (importedCount > 0) {
+        refreshTable();
+        saveCoursesToFile();
+
+        // Disable View Timetable - need to regenerate after importing
+        timetableGenerated = false;
+        if (ui->viewTimetableBtn) {
+            ui->viewTimetableBtn->setEnabled(false);
+            ui->viewTimetableBtn->setToolTip("Courses imported - please click 'Generate Timetable' again");
+        }
+    }
+
+    QString message = QString("Import completed!\n\nImported: %1 course(s)\nSkipped: %2 (duplicates or invalid)")
+        .arg(importedCount).arg(skippedCount);
+
+    if (importedCount > 0) {
+        UIDialogs::showInfo(this, "Import Successful", message);
+    } else {
+        UIDialogs::showWarning(this, "Import Result", message);
+    }
+}
 

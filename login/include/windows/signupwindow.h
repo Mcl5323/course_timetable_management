@@ -10,6 +10,8 @@
 
 #include <QDialog>
 
+class QPushButton;
+
 namespace Ui {
 class SignupWindow;
 }
@@ -23,6 +25,8 @@ class SignupWindow;
  * Key Features:
  * - Input fields for student ID, password, and password confirmation
  * - Password matching validation
+ * - Password strength validation (minimum 6 chars, must have letter and number)
+ * - Student ID format validation (must be numeric, 5-10 digits)
  * - Signal emission to notify MainWindow of successful registration
  * - Modal behavior (blocks interaction with parent window)
  */
@@ -70,8 +74,22 @@ private slots:
      */
     void on_pushButton_Back_clicked();
 
+    /**
+     * Toggle password visibility
+     */
+    void togglePasswordVisibility();
+    void toggleConfirmPasswordVisibility();
+
 private:
     Ui::SignupWindow *ui;  // Pointer to UI components from Qt Designer
+
+    // Password visibility toggle buttons
+    QPushButton *togglePasswordBtn;
+    QPushButton *toggleConfirmPasswordBtn;
+
+    // Validation helper functions
+    bool validateStudentID(const QString &studentID);
+    bool validatePasswordStrength(const QString &password);
 };
 
 #endif // SIGNUPWINDOW_H

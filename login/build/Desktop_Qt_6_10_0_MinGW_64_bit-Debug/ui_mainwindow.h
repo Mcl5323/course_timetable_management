@@ -74,11 +74,11 @@ public:
         lineEdit_Password->setEchoMode(QLineEdit::EchoMode::Password);
         pushButton_Login = new QPushButton(centralwidget);
         pushButton_Login->setObjectName("pushButton_Login");
-        pushButton_Login->setGeometry(QRect(630, 390, 81, 31));
+        pushButton_Login->setGeometry(QRect(630, 420, 81, 31));
         pushButton_Login->setStyleSheet(QString::fromUtf8("font: 10pt \"Segoe UI\";"));
         pushButton_SignUp = new QPushButton(centralwidget);
         pushButton_SignUp->setObjectName("pushButton_SignUp");
-        pushButton_SignUp->setGeometry(QRect(780, 390, 81, 31));
+        pushButton_SignUp->setGeometry(QRect(760, 420, 81, 31));
         pushButton_SignUp->setStyleSheet(QString::fromUtf8("font: 10pt \"Segoe UI\";"));
         MainWindow->setCentralWidget(centralwidget);
         menubar = new QMenuBar(MainWindow);

@@ -39,6 +39,8 @@ private slots:
     void onSearchCourse();
     void onClearSearch();
     void onSortCourses(int index);
+    void onExportCourses();
+    void onImportCourses();
 
 private:
     void refreshTable();
@@ -50,8 +52,18 @@ private:
     LinkedList<int> linearSearchCourses(const QString &searchText);
     void quickSortCourses(int sortBy);
 
+    // Backup mechanism
+    void createBackup();
+    void restoreFromBackup();
+
+    // Conflict detection when adding courses
+    bool checkTimeConflict(const Course &newCourse, int excludeRow = -1);
+    LinkedList<Course> getConflictingCourses(const Course &newCourse, int excludeRow = -1);
+
     Ui::ManageCoursesPage *ui;
     LinkedList<Course> courses;
+    LinkedList<Course> allCourses;  // Backup of all courses when searching
+    bool isSearching;  // Track if currently showing search results
 
     // Search and sort UI (not from .ui file)
     class QLineEdit *searchInput;
@@ -59,10 +71,16 @@ private:
     class QPushButton *clearSearchBtn;
     class QComboBox *sortCombo;
 
+    // Import/Export buttons
+    class QPushButton *exportBtn;
+    class QPushButton *importBtn;
+
     QString currentUser;
     int editingRow;  // -1 = add mode, >=0 = edit mode
+    int selectedRow;  // Track which row's checkbox is selected (-1 = none)
     TIMETABLE *timetableWindow;
     LoadingDialog *loadingDialog;
+    bool timetableGenerated;  // Track if timetable has been generated
 };
 
 #endif // MANAGECOURSESPAGE_H

@@ -137,12 +137,22 @@ public:
     // Get data from box at position (can modify)
     T& operator[](int index) {
         Node<T>* node = getNodeAt(index);
+        if (!node) {
+            // Bounds check failed - create a static default value to return reference to
+            static T defaultValue = T();
+            return defaultValue;
+        }
         return node->data;
     }
 
     // Get data from box at position (read only)
     const T& operator[](int index) const {
         Node<T>* node = getNodeAt(index);
+        if (!node) {
+            // Bounds check failed - return reference to static default value
+            static T defaultValue = T();
+            return defaultValue;
+        }
         return node->data;
     }
 
@@ -170,10 +180,20 @@ public:
     }
 
     const T& first() const {
+        if (!head) {
+            // Empty list - return default value
+            static T defaultValue = T();
+            return defaultValue;
+        }
         return head->data;
     }
 
     const T& last() const {
+        if (!tail) {
+            // Empty list - return default value
+            static T defaultValue = T();
+            return defaultValue;
+        }
         return tail->data;
     }
 

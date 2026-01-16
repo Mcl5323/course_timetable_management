@@ -1,4 +1,2 @@
-TDS1123|Monday|8am|10am|CLC2005
-TDS1123|Monday|2pm|4pm|CLC2005
-TBS1123|Friday|10am|12pm|CLC5001
-TCV1123|Friday|12pm|2pm|TOB5001
+TDS|Monday|8pm|10pm|1234
+TDS|Monday|12pm|2pm|1234
