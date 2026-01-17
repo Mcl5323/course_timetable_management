@@ -215,6 +215,7 @@ void MainWindow::loadRememberedUser()
 /**
  * Login button handler with brute force protection
  */
+void MainWindow::on_submit_clicked()
 {
     QString studentID = ui->lineEdit_StudentID->text().trimmed();
     QString password = ui->lineEdit_Password->text();
@@ -349,6 +350,7 @@ void MainWindow::onResetPassword()
 
 /**
  * SignUp button handler - Open signup window
+ * Uses lazy initialization to create SignupWindow only when needed
  */
 void MainWindow::on_toggle_mode_clicked()
 {
@@ -390,7 +392,8 @@ void MainWindow::switchToManageCoursesPage()
 }
 
 /**
- * Switch back to login page (logout) - properly cleans up memory
+ * Switch back to login page (logout)
+ * Properly cleans up ManageCoursesPage memory to prevent leaks
  */
 void MainWindow::switchToLoginPage()
 {
@@ -407,7 +410,8 @@ void MainWindow::switchToLoginPage()
 }
 
 /**
- * Save all users to users.txt (format: studentID,hashedPassword)
+ * Save all users to users.txt
+ * Format: studentID,hashedPassword (CSV format)
  * Note: Passwords are stored as SHA-256 hashes for security
  */
 void MainWindow::saveUsersToFile()
@@ -435,6 +439,7 @@ void MainWindow::saveUsersToFile()
 
 /**
  * Load users from users.txt on startup
+ * Populates the HashTable with existing user credentials
  */
 void MainWindow::loadUsersFromFile()
 {
@@ -442,7 +447,7 @@ void MainWindow::loadUsersFromFile()
     QString filePath = appDir + "/users.txt";
     QFile file(filePath);
 
-    if (!file.exists()) return;  /* Skip if file doesn't exist (first run) */
+    if (!file.exists()) return;  // Skip if file doesn't exist (first run)
 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         UIDialogs::showWarning(this, "File Error", "Could not load user data from file!");

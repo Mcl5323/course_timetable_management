@@ -37,9 +37,15 @@ TIMETABLE::TIMETABLE(QWidget *parent)
     // Configure timetable table properties
     if (ui->timetableTable) {
         ui->timetableTable->setEditTriggers(QAbstractItemView::NoEditTriggers);  // Disable editing
-        ui->timetableTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);  // Stretch columns
-        ui->timetableTable->horizontalHeader()->setStretchLastSection(true);
-        ui->timetableTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+        /* Set fixed column width (130px) so adjacent courses don't overlap */
+        ui->timetableTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+        ui->timetableTable->horizontalHeader()->setDefaultSectionSize(130);  // Each time slot = 130px
+        for (int col = 0; col < ui->timetableTable->columnCount(); ++col) {
+            ui->timetableTable->setColumnWidth(col, 130);  // Set each column to 130px
+        }
+
+        ui->timetableTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);  // Enable horizontal scroll
         ui->timetableTable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);  // Enable scrolling for all 7 days
 
         for (int row = 0; row < ui->timetableTable->rowCount(); ++row) {
@@ -371,8 +377,8 @@ void TIMETABLE::onDelete()
  * ============================================================================
  */
 
-// Maximum combinations to prevent performance issues (exponential growth)
-static const int MAX_COMBINATIONS = 100;
+/* Maximum combinations - set to large value to allow all combinations */
+static const int MAX_COMBINATIONS = 10000;
 
 /**
  * Generate All Timetable Combinations
@@ -386,14 +392,15 @@ void TIMETABLE::generateAllCombinations()
 {
     HashTable<QString, LinkedList<Course>> courseGroups;  // Group courses by name
 
-    // Group courses and remove duplicates
+    // Group courses and remove duplicates (case-insensitive grouping)
     for (int i = 0; i < coursesData.size(); ++i) {
         const Course &course = coursesData[i];
+        QString nameKey = course.name.toLower();  // Case-insensitive: "Math" == "math"
 
         bool found = false;
-        if (courseGroups.contains(course.name)) {
+        if (courseGroups.contains(nameKey)) {
             // Get reference to existing group using operator[] (avoids copy)
-            LinkedList<Course> &existingGroup = courseGroups[course.name];
+            LinkedList<Course> &existingGroup = courseGroups[nameKey];
             for (int j = 0; j < existingGroup.size(); ++j) {
                 const Course &existing = existingGroup[j];
                 // Check if exact course already exists
@@ -414,7 +421,7 @@ void TIMETABLE::generateAllCombinations()
             // Create new group for new course name
             LinkedList<Course> newGroup;
             newGroup.append(course);
-            courseGroups.insert(course.name, newGroup);
+            courseGroups.insert(nameKey, newGroup);
         }
     }
 
@@ -452,7 +459,12 @@ void TIMETABLE::generateAllCombinations()
     LinkedList<Course> currentCombination;
     generateCombinationsRecursive(groups, 0, currentCombination);
 
-    // Sort combinations: non-conflicting first, then conflicting
+    /**
+     * Sort combinations by priority:
+     * 1. No conflicts first (conflicts = 0)
+     * 2. Among no-conflict ones, sort by total hours (highest first)
+     * 3. Conflicting ones at the end, also sorted by hours
+     */
     LinkedList<LinkedList<Course>> nonConflicting;
     LinkedList<LinkedList<Course>> conflicting;
 
@@ -464,7 +476,33 @@ void TIMETABLE::generateAllCombinations()
         }
     }
 
-    // Rebuild allCombinations with non-conflicting first
+    /* Sort non-conflicting by total hours (highest first) using simple bubble sort */
+    for (int i = 0; i < nonConflicting.size() - 1; ++i) {
+        for (int j = 0; j < nonConflicting.size() - 1 - i; ++j) {
+            int hours1 = 0, hours2 = 0;
+            LinkedList<Course> combo1 = nonConflicting[j];
+            LinkedList<Course> combo2 = nonConflicting[j + 1];
+
+            for (int k = 0; k < combo1.size(); ++k) {
+                int start = timeToColumn(combo1[k].startTime);
+                int end = timeToColumn(combo1[k].endTime);
+                if (start >= 0 && end >= 0) hours1 += (end - start);
+            }
+            for (int k = 0; k < combo2.size(); ++k) {
+                int start = timeToColumn(combo2[k].startTime);
+                int end = timeToColumn(combo2[k].endTime);
+                if (start >= 0 && end >= 0) hours2 += (end - start);
+            }
+
+            /* Swap if hours2 > hours1 (we want highest hours first) */
+            if (hours2 > hours1) {
+                nonConflicting[j] = combo2;
+                nonConflicting[j + 1] = combo1;
+            }
+        }
+    }
+
+    /* Rebuild allCombinations: best (no conflict, most hours) first */
     allCombinations.clear();
     for (int i = 0; i < nonConflicting.size(); ++i) {
         allCombinations.append(nonConflicting[i]);
@@ -566,7 +604,10 @@ bool TIMETABLE::hasConflict(const LinkedList<Course> &combination)
     return false;  // No conflicts
 }
 
-// Display the currently selected combination
+/**
+ * Display the currently selected combination
+ * Updates the timetable grid and statistics for the current combination
+ */
 void TIMETABLE::displayCurrentCombination()
 {
     if (allCombinations.isEmpty() || currentCombinationIndex < 0 ||
@@ -574,48 +615,110 @@ void TIMETABLE::displayCurrentCombination()
         return;
     }
 
-    LinkedList<Course> originalData = coursesData;  // Save original
-    coursesData = allCombinations[currentCombinationIndex];  // Switch to current combination
+    /* Save original data */
+    LinkedList<Course> originalData = coursesData;
 
+    /* Clear and rebuild coursesData from current combination */
+    coursesData.clear();
+    LinkedList<Course>& combo = allCombinations[currentCombinationIndex];
+    for (int i = 0; i < combo.size(); ++i) {
+        coursesData.append(combo[i]);
+    }
+
+    /* Display the timetable grid */
     populateTimetable();
-    updateStatistics();
 
-    coursesData = originalData;  // Restore original
+    /* Calculate statistics - count directly from combo */
+    int totalCourses = combo.size();
+
+    /* Calculate total hours */
+    int totalHours = 0;
+    for (int i = 0; i < combo.size(); ++i) {
+        int start = timeToColumn(combo[i].startTime);
+        int end = timeToColumn(combo[i].endTime);
+        if (start >= 0 && end >= 0) {
+            totalHours += (end - start);
+        }
+    }
+
+    /* Count conflicts */
+    int conflicts = 0;
+    for (int i = 0; i < combo.size(); ++i) {
+        for (int j = i + 1; j < combo.size(); ++j) {
+            if (combo[i].day != combo[j].day) continue;
+
+            int start1 = timeToColumn(combo[i].startTime);
+            int end1 = timeToColumn(combo[i].endTime);
+            int start2 = timeToColumn(combo[j].startTime);
+            int end2 = timeToColumn(combo[j].endTime);
+
+            if (start1 >= 0 && end1 >= 0 && start2 >= 0 && end2 >= 0) {
+                if (start1 < end2 && start2 < end1) {
+                    conflicts++;
+                }
+            }
+        }
+    }
+
+    /* Update UI labels */
+    if (ui->totalCourseLabel) {
+        ui->totalCourseLabel->setText(QString("Total Course: %1").arg(totalCourses));
+    }
+    if (ui->totalHoursLabel) {
+        /* Blue color for Total Hours - indicates dynamic value */
+        ui->totalHoursLabel->setText(QString("Total Hours: %1").arg(totalHours));
+        ui->totalHoursLabel->setStyleSheet("QLabel { color: #3498db; font: bold 18pt \"Segoe UI\"; background-color: transparent; padding: 10px; }");
+    }
+    if (ui->conflictsLabel) {
+        if (conflicts == 0) {
+            /* Green for No conflicts - good, can save */
+            ui->conflictsLabel->setText("Conflicts: No");
+            ui->conflictsLabel->setStyleSheet("QLabel { color: #27ae60; font: bold 18pt \"Segoe UI\"; background-color: transparent; padding: 10px; }");
+        } else {
+            /* Red for Yes conflicts - bad, cannot use */
+            ui->conflictsLabel->setText("Conflicts: Yes");
+            ui->conflictsLabel->setStyleSheet("QLabel { color: #e74c3c; font: bold 18pt \"Segoe UI\"; background-color: transparent; padding: 10px; }");
+        }
+    }
+
+    /* Restore original data for future operations */
+    coursesData = originalData;
 }
 
-// Update page label and navigation buttons
+/**
+ * Update page label and navigation buttons
+ */
 void TIMETABLE::updatePageLabel()
 {
     if (!allCombinations.isEmpty()) {
-        // Update page number display (simple format: 1/6)
+        /* Update page number display - always show */
         if (ui->pageNumberLabel) {
             ui->pageNumberLabel->setText(QString("%1/%2")
                                          .arg(currentCombinationIndex + 1)
                                          .arg(allCombinations.size()));
+            ui->pageNumberLabel->show();
         }
 
-        // Show/hide navigation buttons based on number of combinations
+        /* Show/hide navigation buttons based on number of combinations */
         if (allCombinations.size() > 1) {
             if (ui->prevPageBtn) ui->prevPageBtn->show();
             if (ui->nextPageBtn) ui->nextPageBtn->show();
-            if (ui->pageNumberLabel) ui->pageNumberLabel->show();
         } else {
             if (ui->prevPageBtn) ui->prevPageBtn->hide();
             if (ui->nextPageBtn) ui->nextPageBtn->hide();
-            if (ui->pageNumberLabel) ui->pageNumberLabel->hide();
         }
 
-        // Update window title
+        /* Update window title */
         this->setWindowTitle(QString("View Timetable - Page %1 of %2")
                              .arg(currentCombinationIndex + 1)
                              .arg(allCombinations.size()));
     } else {
         if (ui->pageNumberLabel) {
             ui->pageNumberLabel->setText("1/1");
+            ui->pageNumberLabel->show();
         }
         if (ui->prevPageBtn) ui->prevPageBtn->hide();
         if (ui->nextPageBtn) ui->nextPageBtn->hide();
-        if (ui->pageNumberLabel) ui->pageNumberLabel->hide();
         this->setWindowTitle("View Timetable");
     }
 }

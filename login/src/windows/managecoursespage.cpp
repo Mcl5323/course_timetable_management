@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * Manage Courses Page Implementation (managecoursespage.cpp)
+ * ============================================================================
+ *
+ * This file implements the main course management interface where users can:
+ * - Add, edit, and delete courses (CRUD operations)
+ * - Search courses using LINEAR SEARCH algorithm
+ * - Sort courses using QUICKSORT algorithm
+ * - Generate timetable combinations
+ * - Import/Export courses to/from CSV files
+ *
+ * Key Algorithms:
+ * - Linear Search: O(n) - searches through all courses for keyword matches
+ * - QuickSort: O(n log n) - sorts courses by name/day/time/classroom
+ *
+ * ============================================================================
+ */
+
 #include "managecoursespage.h"
 #include "ui_managecoursespage.h"
 #include "mainwindow.h"
@@ -22,10 +41,8 @@
 #include <QCoreApplication>
 #include <QFileDialog>
 
-/**
- * Constructor - Initialize course management page
- * Note: Initialization order must match declaration order in header file
- */
+// Constructor - Initialize course management page
+// Note: Initialization order must match declaration order in header file
 ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::ManageCoursesPage)
@@ -43,11 +60,11 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
     this->showMaximized();
     this->setStyleSheet("background-color: " + UIColors::BACKGROUND_DARK_BLUE_GRAY);
 
-    if (ui->dayCombo) {  /* Setup day selection */
+    if (ui->dayCombo) {  // Setup day selection
         ui->dayCombo->addItems({"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"});
     }
 
-    if (ui->startTimeLabel) {  /* Setup start time (8am to 10pm) */
+    if (ui->startTimeLabel) {  // Setup start time (8am to 10pm)
         QStringList hours;
         for (int i = 8; i <= 11; ++i) hours << QString("%1am").arg(i);
         hours << "12pm";
@@ -55,7 +72,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->startTimeLabel->addItems(hours);
     }
 
-    if (ui->endTimeInput) {  /* Setup end time (8am to 10pm) */
+    if (ui->endTimeInput) {  // Setup end time (8am to 10pm)
         QStringList hours;
         for (int i = 8; i <= 11; ++i) hours << QString("%1am").arg(i);
         hours << "12pm";
@@ -63,7 +80,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->endTimeInput->addItems(hours);
     }
 
-    if (ui->coursetable) {  /* Setup course table */
+    if (ui->coursetable) {  // Setup course table
         ui->coursetable->setColumnCount(6);
         ui->coursetable->setHorizontalHeaderLabels({"Select", "Course Name", "Day", "Time", "Classroom", "Actions"});
         ui->coursetable->setRowCount(0);
@@ -74,7 +91,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->coursetable->setColumnWidth(3, 120);
         ui->coursetable->setColumnWidth(4, 120);
         ui->coursetable->setColumnWidth(5, 180);
-        ui->coursetable->setMaximumHeight(180);  /* Limit height to 180px, enable scrolling */
+        ui->coursetable->setMaximumHeight(180);  // Limit height to 180px, enable scrolling
         ui->coursetable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         ui->coursetable->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         ui->coursetable->horizontalHeader()->setStyleSheet(UIStyles::tableHeaderBlue());
@@ -82,7 +99,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->coursetable->setAlternatingRowColors(false);
     }
 
-    if (ui->logupbutton) {  /* Setup logout button (lambda function) */
+    if (ui->logupbutton) {  // Setup logout button (lambda function)
         connect(ui->logupbutton, &QPushButton::clicked, this, [this, parent]() {
             this->hide();
             MainWindow *mainWindow = qobject_cast<MainWindow*>(parent);
@@ -92,7 +109,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         });
     }
 
-    /* Create Search label (ABOVE TABLE - Y=500) */
+    // Create Search label (ABOVE TABLE - Y=500)
     QLabel *searchSortLabel = new QLabel("Search:", this);
     searchSortLabel->setGeometry(170, 502, 60, 25);
     searchSortLabel->setStyleSheet("font: bold 10pt \"Segoe UI\"; color: #FFFFFF; background-color: transparent;");
@@ -145,6 +162,13 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
     importBtn->setStyleSheet("QPushButton { background-color: #3498db; color: white; border: none; border-radius: 4px; padding: 5px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #2980b9; }");
     importBtn->show();
     importBtn->raise();
+
+    // Delete All button - red color to indicate danger action
+    deleteAllBtn = new QPushButton("Delete All", this);
+    deleteAllBtn->setGeometry(1060, 498, 80, 30);
+    deleteAllBtn->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 5px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #c0392b; }");
+    deleteAllBtn->show();
+    deleteAllBtn->raise();
 
     setupConnections();  // Connect all signals to slots
     loadCoursesFromFile();  // Load saved courses
@@ -215,6 +239,7 @@ void ManageCoursesPage::setupConnections() {
     connect(sortCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ManageCoursesPage::onSortCourses);
     connect(exportBtn, &QPushButton::clicked, this, &ManageCoursesPage::onExportCourses);
     connect(importBtn, &QPushButton::clicked, this, &ManageCoursesPage::onImportCourses);
+    connect(deleteAllBtn, &QPushButton::clicked, this, &ManageCoursesPage::onDeleteAllCourses);
 }
 
 // Add or update course (editingRow == -1: add mode, >= 0: edit mode)
@@ -319,13 +344,17 @@ void ManageCoursesPage::onAddCourse() {
         isSearching = false;
     }
 
-    if (editingRow >= 0 && editingRow < courses.size()) {  // Update existing course
+    if (editingRow >= 0 && editingRow < courses.size()) {  /* Update existing course */
         courses[editingRow].name = name;
         courses[editingRow].day = day;
         courses[editingRow].startTime = startTime;
         courses[editingRow].endTime = endTime;
         courses[editingRow].classroom = classroom;
+
+        /* Reset selection state before refresh to prevent stale row highlighting */
+        selectedRow = -1;
         editingRow = -1;
+
         refreshTable();
         clearForm();
         saveCoursesToFile();
@@ -338,7 +367,7 @@ void ManageCoursesPage::onAddCourse() {
         }
 
         UIDialogs::showInfo(this, "Success", QString("Course '%1' updated successfully!").arg(name));
-    } else {  // Add new course
+    } else {  /* Add new course */
         Course course;
         course.name = name;
         course.day = day;
@@ -346,6 +375,10 @@ void ManageCoursesPage::onAddCourse() {
         course.endTime = endTime;
         course.classroom = classroom;
         courses.append(course);
+
+        /* Reset selection state before refresh */
+        selectedRow = -1;
+
         refreshTable();
         clearForm();
         saveCoursesToFile();
@@ -361,9 +394,11 @@ void ManageCoursesPage::onAddCourse() {
     }
 }
 
-// Delete course and update edit mode state if needed
+/**
+ * Delete course and update edit mode state if needed
+ */
 void ManageCoursesPage::onDeleteCourse(int row) {
-    // Exit search mode when deleting courses
+    /* Exit search mode when deleting courses */
     if (isSearching) {
         courses = allCourses;
         isSearching = false;
@@ -373,12 +408,15 @@ void ManageCoursesPage::onDeleteCourse(int row) {
         QString name = courses[row].name;
         courses.removeAt(row);
 
-        if (editingRow == row) {  // Deleted the course being edited
+        if (editingRow == row) {  /* Deleted the course being edited */
             editingRow = -1;
             clearForm();
-        } else if (editingRow > row) {  // Deleted a course before the one being edited
-            editingRow--;  // Adjust for index shift
+        } else if (editingRow > row) {  /* Deleted a course before the one being edited */
+            editingRow--;  /* Adjust for index shift */
         }
+
+        /* Reset selection state - the deleted row is no longer valid */
+        selectedRow = -1;
 
         refreshTable();
         saveCoursesToFile();
@@ -394,11 +432,69 @@ void ManageCoursesPage::onDeleteCourse(int row) {
     }
 }
 
-// Rebuild table with all courses (creates checkboxes, text items, and action buttons)
+/**
+ * Delete all courses at once
+ * Shows confirmation dialog before deleting
+ */
+void ManageCoursesPage::onDeleteAllCourses() {
+    /* Check if there are any courses to delete */
+    if (courses.isEmpty()) {
+        UIDialogs::showInfo(this, "No Courses", "There are no courses to delete.");
+        return;
+    }
+
+    /* Show confirmation dialog */
+    bool confirmed = UIDialogs::showConfirmation(
+        this,
+        "Delete All Courses",
+        QString("Are you sure you want to delete ALL %1 courses?\n\nThis action cannot be undone!")
+            .arg(courses.size())
+    );
+
+    if (!confirmed) {
+        return;  /* User cancelled */
+    }
+
+    /* Exit search mode if active */
+    if (isSearching) {
+        isSearching = false;
+        allCourses.clear();
+    }
+
+    /* Clear all courses */
+    int count = courses.size();
+    courses.clear();
+
+    /* Reset state */
+    editingRow = -1;
+    selectedRow = -1;
+    clearForm();
+
+    /* Update UI */
+    refreshTable();
+    saveCoursesToFile();
+
+    /* Disable View Timetable - need to regenerate */
+    timetableGenerated = false;
+    if (ui->viewTimetableBtn) {
+        ui->viewTimetableBtn->setEnabled(false);
+        ui->viewTimetableBtn->setToolTip("All courses deleted - please add courses and click 'Generate Timetable'");
+    }
+
+    UIDialogs::showInfo(this, "Deleted", QString("All %1 courses have been deleted!").arg(count));
+}
+
+/**
+ * Rebuild table with all courses
+ * Creates checkboxes, text items, and action buttons for each row
+ */
 void ManageCoursesPage::refreshTable() {
     if (!ui->coursetable) return;
 
+    /* Clear existing content before rebuilding to prevent stale data display */
+    ui->coursetable->clearContents();
     ui->coursetable->setRowCount(courses.size());
+
     for (int row = 0; row < courses.size(); ++row) {
         ui->coursetable->setRowHeight(row, 40);
     }
@@ -861,7 +957,10 @@ void ManageCoursesPage::quickSortCourses(int sortBy)
     saveCoursesToFile();
 }
 
-// Search courses and show matching results
+/**
+ * Search courses and show matching results
+ * Uses LINEAR SEARCH algorithm to find courses matching the search text
+ */
 void ManageCoursesPage::onSearchCourse()
 {
     QString searchText = searchInput->text().trimmed();
@@ -870,7 +969,10 @@ void ManageCoursesPage::onSearchCourse()
         return;
     }
 
-    // If already searching, restore all courses first
+    /* Reset selected row before search - old selection may not be valid after filtering */
+    selectedRow = -1;
+
+    /* If already searching, restore all courses first */
     if (isSearching) {
         courses = allCourses;
     }
@@ -881,17 +983,17 @@ void ManageCoursesPage::onSearchCourse()
         return;
     }
 
-    // Backup all courses before filtering
+    /* Backup all courses before filtering */
     allCourses = courses;
 
-    // Filter courses to show only search results
+    /* Filter courses to show only search results */
     LinkedList<Course> searchResults;
     for (int i = 0; i < matchIndices.size(); ++i) {
         searchResults.append(courses[matchIndices[i]]);
     }
     courses = searchResults;
 
-    // Mark as searching and refresh display
+    /* Mark as searching and refresh display */
     isSearching = true;
     refreshTable();
 
@@ -900,12 +1002,18 @@ void ManageCoursesPage::onSearchCourse()
             .arg(matchIndices.size()).arg(searchText));
 }
 
-// Clear search and show all courses
+/**
+ * Clear search and show all courses
+ * Restores the full course list from backup
+ */
 void ManageCoursesPage::onClearSearch()
 {
     searchInput->clear();
 
-    // If in search mode, restore all courses
+    /* Reset selected row when clearing search */
+    selectedRow = -1;
+
+    /* If in search mode, restore all courses */
     if (isSearching) {
         courses = allCourses;
         isSearching = false;
@@ -916,17 +1024,22 @@ void ManageCoursesPage::onClearSearch()
     }
 }
 
-// Sort courses by selected criteria
-// Fix: When in search mode, restore all courses first, then sort, then re-apply search
+/**
+ * Sort courses by selected criteria
+ * When in search mode, restore all courses first, then sort, then re-apply search
+ */
 void ManageCoursesPage::onSortCourses(int index)
 {
-    if (index == 0) return;  // Ignore "Select Sort Option"
+    if (index == 0) return;  /* Ignore "Select Sort Option" */
 
-    // If in search mode, restore all courses first then sort
+    /* Reset selection state - indices will change after sorting */
+    selectedRow = -1;
+
+    /* If in search mode, restore all courses first then sort */
     QString currentSearchText;
     if (isSearching) {
         currentSearchText = searchInput->text().trimmed();
-        courses = allCourses;  // Restore all courses
+        courses = allCourses;  /* Restore all courses */
         isSearching = false;
     }
 
@@ -937,11 +1050,11 @@ void ManageCoursesPage::onSortCourses(int index)
 
     quickSortCourses(index - 1);
 
-    // Re-apply search filter if was searching
+    /* Re-apply search filter if was searching */
     if (!currentSearchText.isEmpty()) {
         LinkedList<int> matchIndices = linearSearchCourses(currentSearchText);
         if (!matchIndices.isEmpty()) {
-            allCourses = courses;  // Backup sorted courses
+            allCourses = courses;  /* Backup sorted courses */
             LinkedList<Course> searchResults;
             for (int i = 0; i < matchIndices.size(); ++i) {
                 searchResults.append(courses[matchIndices[i]]);

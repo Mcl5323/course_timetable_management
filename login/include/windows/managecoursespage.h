@@ -75,6 +75,7 @@ private slots:
     void onAddCourse();              // Add new course or save edited course
     void onDeleteCourse(int row);    // Delete course at specified row
     void onEditCourse(int row);      // Load course data into form for editing
+    void onDeleteAllCourses();       // Delete all courses at once
 
     // ==================== Timetable Operations ====================
     void onGenerateTimetable();      // Generate timetable with loading animation
@@ -130,6 +131,7 @@ private:
     // Import/Export buttons
     class QPushButton *exportBtn;    // Export to CSV
     class QPushButton *importBtn;    // Import from CSV
+    class QPushButton *deleteAllBtn; // Delete all courses
 
     // State management
     QString currentUser;             // Current logged-in user ID

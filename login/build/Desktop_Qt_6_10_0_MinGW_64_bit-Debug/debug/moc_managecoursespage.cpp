@@ -44,6 +44,7 @@ template <> constexpr inline auto ManageCoursesPage::qt_create_metaobjectdata<qt
         "onDeleteCourse",
         "row",
         "onEditCourse",
+        "onDeleteAllCourses",
         "onGenerateTimetable",
         "onLoadingComplete",
         "onViewTimetable",
@@ -66,24 +67,26 @@ template <> constexpr inline auto ManageCoursesPage::qt_create_metaobjectdata<qt
         QtMocHelpers::SlotData<void(int)>(5, 2, QMC::AccessPrivate, QMetaType::Void, {{
             { QMetaType::Int, 4 },
         }}),
-        // Slot 'onGenerateTimetable'
+        // Slot 'onDeleteAllCourses'
         QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onLoadingComplete'
+        // Slot 'onGenerateTimetable'
         QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onViewTimetable'
+        // Slot 'onLoadingComplete'
         QtMocHelpers::SlotData<void()>(8, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onSearchCourse'
+        // Slot 'onViewTimetable'
         QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onClearSearch'
+        // Slot 'onSearchCourse'
         QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onClearSearch'
+        QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onSortCourses'
-        QtMocHelpers::SlotData<void(int)>(11, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Int, 12 },
+        QtMocHelpers::SlotData<void(int)>(12, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 13 },
         }}),
         // Slot 'onExportCourses'
-        QtMocHelpers::SlotData<void()>(13, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onImportCourses'
         QtMocHelpers::SlotData<void()>(14, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onImportCourses'
+        QtMocHelpers::SlotData<void()>(15, 2, QMC::AccessPrivate, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -110,14 +113,15 @@ void ManageCoursesPage::qt_static_metacall(QObject *_o, QMetaObject::Call _c, in
         case 0: _t->onAddCourse(); break;
         case 1: _t->onDeleteCourse((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
         case 2: _t->onEditCourse((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
-        case 3: _t->onGenerateTimetable(); break;
-        case 4: _t->onLoadingComplete(); break;
-        case 5: _t->onViewTimetable(); break;
-        case 6: _t->onSearchCourse(); break;
-        case 7: _t->onClearSearch(); break;
-        case 8: _t->onSortCourses((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
-        case 9: _t->onExportCourses(); break;
-        case 10: _t->onImportCourses(); break;
+        case 3: _t->onDeleteAllCourses(); break;
+        case 4: _t->onGenerateTimetable(); break;
+        case 5: _t->onLoadingComplete(); break;
+        case 6: _t->onViewTimetable(); break;
+        case 7: _t->onSearchCourse(); break;
+        case 8: _t->onClearSearch(); break;
+        case 9: _t->onSortCourses((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
+        case 10: _t->onExportCourses(); break;
+        case 11: _t->onImportCourses(); break;
         default: ;
         }
     }
@@ -142,14 +146,14 @@ int ManageCoursesPage::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 11)
+        if (_id < 12)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 11;
+        _id -= 12;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 11)
+        if (_id < 12)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 11;
+        _id -= 12;
     }
     return _id;
 }

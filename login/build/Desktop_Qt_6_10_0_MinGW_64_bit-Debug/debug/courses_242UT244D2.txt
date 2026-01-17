@@ -1,6 +1,10 @@
+Math|Monday|8am|9am|1123
+math|Tuesday|9am|11am|1123
+Physics|Monday|9am|10am|1231
+chemi|Wednesday|2pm|4pm|12345
 TDS1123|Monday|8am|10am|clc2005
-1|Monday|8am|10am|1
-TDS1123|Monday|9am|11am|clc2005
-TEH1123|Monday|12pm|2pm|clc1004
 TDS1123|Tuesday|2pm|4pm|clc2005
+TEH1123|Monday|12pm|2pm|clc1004
 TEH1123|Monday|3pm|5pm|clc2004
+TDS1123|Monday|9am|11am|clc2005
+TEH1123|Monday|12pm|1pm|clc2222
