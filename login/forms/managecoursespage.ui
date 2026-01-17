@@ -255,9 +255,9 @@ QPushButton:pressed {
    <property name="geometry">
     <rect>
      <x>170</x>
-     <y>670</y>
-     <width>571</width>
-     <height>61</height>
+     <y>725</y>
+     <width>580</width>
+     <height>45</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -287,9 +287,9 @@ QPushButton:pressed {
    <property name="geometry">
     <rect>
      <x>760</x>
-     <y>670</y>
+     <y>725</y>
      <width>581</width>
-     <height>61</height>
+     <height>45</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -433,9 +433,9 @@ QPushButton:pressed {
    <property name="geometry">
     <rect>
      <x>170</x>
-     <y>500</y>
+     <y>535</y>
      <width>1171</width>
-     <height>151</height>
+     <height>180</height>
     </rect>
    </property>
    <property name="styleSheet">

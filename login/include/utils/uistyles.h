@@ -9,13 +9,13 @@
  * Usage:
  *   #include "uistyles.h"
  *
- *   // Use colors
+ *   /* Use colors */
  *   setStyleSheet("background-color: " + UIColors::BLUE_PRIMARY);
  *
- *   // Use stylesheet generators
+ *   /* Use stylesheet generators */
  *   myButton->setStyleSheet(UIStyles::blueButton());
  *
- *   // Use dialog utilities
+ *   /* Use dialog utilities */
  *   UIDialogs::showInfo(this, "Success", "Operation completed!");
  */
 
@@ -26,24 +26,26 @@
 #include <QWidget>
 #include <QMessageBox>
 
-// ============================================================================
-// COLORS - All color constants used in the application
-// ============================================================================
+/**
+ * ============================================================================
+ * COLORS - All color constants used in the application
+ * ============================================================================
+ */
 namespace UIColors {
-    // Background Colors
-    inline const QString BACKGROUND_DARK_BLUE_GRAY = "#34495e";  // ManageCoursesPage background
-    inline const QString BACKGROUND_VERY_DARK = "#0D1B2A";       // Timetable background
+    /* Background Colors */
+    inline const QString BACKGROUND_DARK_BLUE_GRAY = "#34495e";  /* ManageCoursesPage background */
+    inline const QString BACKGROUND_VERY_DARK = "#0D1B2A";       /* Timetable background */
     inline const QString BACKGROUND_WHITE = "#ffffff";
     inline const QString BACKGROUND_LIGHT_GRAY = "#ecf0f1";
-    inline const QString BACKGROUND_SELECTED_ROW = "#E8E8E8";    // Selected table row
+    inline const QString BACKGROUND_SELECTED_ROW = "#E8E8E8";    /* Selected table row */
 
-    // Blue Theme (Primary buttons: Edit, Search, Add, Table Header)
+    /* Blue Theme (Primary buttons: Edit, Search, Add, Table Header) */
     inline const QString BLUE_PRIMARY = "#3498db";
     inline const QString BLUE_HOVER = "#2980b9";
     inline const QString BLUE_PRESSED = "#21618c";
-    inline const QString BLUE_DEEP = "#2d5a8c";                  // Timetable course cells
+    inline const QString BLUE_DEEP = "#2d5a8c";                  /* Timetable course cells */
 
-    // Red Theme (Delete/Danger buttons)
+    /* Red Theme (Delete/Danger buttons) */
     inline const QString RED_PRIMARY = "#e74c3c";
     inline const QString RED_HOVER = "#c0392b";
     inline const QString RED_PRESSED = "#a93226";

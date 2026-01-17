@@ -80,6 +80,13 @@ void TIMETABLE::populateTimetable()
 {
     if (!ui->timetableTable) return;
 
+    // Clear all existing spans first (important!)
+    for (int row = 0; row < ui->timetableTable->rowCount(); ++row) {
+        for (int col = 0; col < ui->timetableTable->columnCount(); ++col) {
+            ui->timetableTable->setSpan(row, col, 1, 1);  // Reset to single cell
+        }
+    }
+
     ui->timetableTable->clearContents();  // Clear existing content
 
     // Process each course and create table cells
@@ -296,10 +303,10 @@ void TIMETABLE::onSaveAs()
     }
 }
 
-// Close timetable window
+// Hide timetable window (can be shown again with View Timetable)
 void TIMETABLE::onBack()
 {
-    this->close();
+    this->hide();  // Just hide, don't close - can view again
 }
 
 // Navigate to previous timetable combination
@@ -350,11 +357,31 @@ void TIMETABLE::onDelete()
     this->close();  // This function just closes the window, not deletes anything
 }
 
-// Maximum number of combinations to prevent performance issues
+/**
+ * ============================================================================
+ * TIMETABLE COMBINATION GENERATION
+ * ============================================================================
+ *
+ * This section generates all possible timetable arrangements when courses
+ * have multiple time options (e.g., "Math" can be Monday 8am or Tuesday 2pm).
+ *
+ * Algorithm: RECURSIVE BACKTRACKING
+ * Data Structures: HashTable (grouping), LinkedList (storage)
+ *
+ * ============================================================================
+ */
+
+// Maximum combinations to prevent performance issues (exponential growth)
 static const int MAX_COMBINATIONS = 100;
 
-// Generate all possible timetable combinations from courses with multiple time options
-// Now with limit to prevent exponential growth causing lag
+/**
+ * Generate All Timetable Combinations
+ *
+ * Step 1: Group courses by name using HashTable
+ * Step 2: Check if any course has multiple time options
+ * Step 3: If yes, use recursive backtracking to generate all combinations
+ * Step 4: Sort combinations (non-conflicting first)
+ */
 void TIMETABLE::generateAllCombinations()
 {
     HashTable<QString, LinkedList<Course>> courseGroups;  // Group courses by name
@@ -447,23 +474,55 @@ void TIMETABLE::generateAllCombinations()
     }
 }
 
-// Recursive function to generate all combinations (backtracking algorithm)
-// Limited to MAX_COMBINATIONS to prevent performance issues
+/**
+ * ============================================================================
+ * RECURSIVE BACKTRACKING ALGORITHM
+ * ============================================================================
+ *
+ * This is the core algorithm for generating all timetable combinations.
+ *
+ * Time Complexity: O(n^m) where n = options per course, m = number of courses
+ * Space Complexity: O(m) for recursion stack
+ *
+ * How it works:
+ * 1. BASE CASE: If all groups processed, save current combination
+ * 2. RECURSIVE CASE: For each option in current group:
+ *    a. CHOOSE: Add course to current combination
+ *    b. EXPLORE: Recursively process next group
+ *    c. UNCHOOSE: Remove course (backtrack) to try next option
+ *
+ * Example with 2 courses, each with 2 time options:
+ * - Math: [Mon 8am, Tue 2pm]
+ * - Science: [Wed 10am, Thu 4pm]
+ *
+ * Generates combinations:
+ * 1. Math(Mon 8am) + Science(Wed 10am)
+ * 2. Math(Mon 8am) + Science(Thu 4pm)
+ * 3. Math(Tue 2pm) + Science(Wed 10am)
+ * 4. Math(Tue 2pm) + Science(Thu 4pm)
+ *
+ * @param groups - List of course groups (each group has multiple time options)
+ * @param groupIndex - Current group being processed
+ * @param currentCombination - Current combination being built
+ * ============================================================================
+ */
 void TIMETABLE::generateCombinationsRecursive(const LinkedList<LinkedList<Course>> &groups,
                                                int groupIndex,
                                                LinkedList<Course> &currentCombination)
 {
-    // Stop if we've reached the maximum number of combinations
+    // Limit check: Prevent exponential explosion
     if (allCombinations.size() >= MAX_COMBINATIONS) {
         return;
     }
 
-    if (groupIndex >= groups.size()) {  // Base case: all courses selected
+    // BASE CASE: All groups have been processed
+    if (groupIndex >= groups.size()) {
+        // Save the complete combination
         allCombinations.append(currentCombination);
         return;
     }
 
-    // Try each time option for current course
+    // RECURSIVE CASE: Try each option in current group
     const LinkedList<Course> &currentGroup = groups[groupIndex];
     for (int i = 0; i < currentGroup.size(); ++i) {
         // Check limit before recursing
@@ -472,9 +531,15 @@ void TIMETABLE::generateCombinationsRecursive(const LinkedList<LinkedList<Course
         }
 
         const Course &course = currentGroup[i];
-        currentCombination.append(course);  // Choose
-        generateCombinationsRecursive(groups, groupIndex + 1, currentCombination);  // Explore
-        currentCombination.removeLast();  // Unchoose (backtrack)
+
+        // STEP 1: CHOOSE - Add this course option to current combination
+        currentCombination.append(course);
+
+        // STEP 2: EXPLORE - Recursively process next group
+        generateCombinationsRecursive(groups, groupIndex + 1, currentCombination);
+
+        // STEP 3: UNCHOOSE (BACKTRACK) - Remove course to try next option
+        currentCombination.removeLast();
     }
 }
 
@@ -519,20 +584,14 @@ void TIMETABLE::displayCurrentCombination()
 }
 
 // Update page label and navigation buttons
-// Now shows conflict status for each combination
 void TIMETABLE::updatePageLabel()
 {
     if (!allCombinations.isEmpty()) {
-        // Check if current combination has conflicts
-        bool currentHasConflict = hasConflict(allCombinations[currentCombinationIndex]);
-        QString conflictStatus = currentHasConflict ? " [CONFLICT]" : " [OK]";
-
-        // Update page number display with conflict status
+        // Update page number display (simple format: 1/6)
         if (ui->pageNumberLabel) {
-            ui->pageNumberLabel->setText(QString("%1/%2%3")
+            ui->pageNumberLabel->setText(QString("%1/%2")
                                          .arg(currentCombinationIndex + 1)
-                                         .arg(allCombinations.size())
-                                         .arg(conflictStatus));
+                                         .arg(allCombinations.size()));
         }
 
         // Show/hide navigation buttons based on number of combinations
@@ -546,12 +605,10 @@ void TIMETABLE::updatePageLabel()
             if (ui->pageNumberLabel) ui->pageNumberLabel->hide();
         }
 
-        // Update window title with conflict status
-        QString titleConflict = currentHasConflict ? " - HAS CONFLICTS" : " - No Conflicts";
-        this->setWindowTitle(QString("View Timetable - Page %1 of %2%3")
+        // Update window title
+        this->setWindowTitle(QString("View Timetable - Page %1 of %2")
                              .arg(currentCombinationIndex + 1)
-                             .arg(allCombinations.size())
-                             .arg(titleConflict));
+                             .arg(allCombinations.size()));
     } else {
         if (ui->pageNumberLabel) {
             ui->pageNumberLabel->setText("1/1");
@@ -559,6 +616,6 @@ void TIMETABLE::updatePageLabel()
         if (ui->prevPageBtn) ui->prevPageBtn->hide();
         if (ui->nextPageBtn) ui->nextPageBtn->hide();
         if (ui->pageNumberLabel) ui->pageNumberLabel->hide();
-        this->setWindowTitle("View Timetable - No valid combinations");
+        this->setWindowTitle("View Timetable");
     }
 }

@@ -163,7 +163,7 @@ public:
         courseCountLabel->setStyleSheet(QString::fromUtf8("font: 700 32pt \"Segoe UI\";"));
         generateBtn = new QPushButton(ManageCoursesPage);
         generateBtn->setObjectName("generateBtn");
-        generateBtn->setGeometry(QRect(170, 670, 571, 61));
+        generateBtn->setGeometry(QRect(170, 725, 580, 45));
         generateBtn->setStyleSheet(QString::fromUtf8("QPushButton {\n"
 "    background-color: #9b59b6;\n"
 "    color: white;\n"
@@ -183,7 +183,7 @@ public:
 "}"));
         viewTimetableBtn = new QPushButton(ManageCoursesPage);
         viewTimetableBtn->setObjectName("viewTimetableBtn");
-        viewTimetableBtn->setGeometry(QRect(760, 670, 581, 61));
+        viewTimetableBtn->setGeometry(QRect(760, 725, 581, 45));
         viewTimetableBtn->setStyleSheet(QString::fromUtf8("QPushButton {\n"
 "    background-color: #ff8c42;\n"
 "    color: white;\n"
@@ -291,7 +291,7 @@ public:
         if (coursetable->rowCount() < 3)
             coursetable->setRowCount(3);
         coursetable->setObjectName("coursetable");
-        coursetable->setGeometry(QRect(170, 500, 1171, 151));
+        coursetable->setGeometry(QRect(170, 535, 1171, 180));
         coursetable->setStyleSheet(QString::fromUtf8("QTableWidget {\n"
 "background-color: #f0f0f0;\n"
 "alternate-background-color: #e0e0e0;\n"

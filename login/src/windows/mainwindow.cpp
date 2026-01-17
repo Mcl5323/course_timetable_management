@@ -15,33 +15,39 @@
 #include <QSettings>
 #include <QInputDialog>
 
-// Hash password using SHA-256 with salt for security
+/**
+ * Hash password using SHA-256 with salt for security
+ */
 QString MainWindow::hashPassword(const QString &password)
 {
-    // Add salt to make rainbow table attacks harder
+    /* Add salt to make rainbow table attacks harder */
     QString salt = "CourseRegSalt2024";
     QString saltedPassword = salt + password + salt;
     QByteArray hash = QCryptographicHash::hash(saltedPassword.toUtf8(), QCryptographicHash::Sha256);
     return QString(hash.toHex());
 }
 
-// Add user to hash table (returns false if duplicate exists)
-// Note: password should already be hashed before calling this function
+/**
+ * Add user to hash table (returns false if duplicate exists)
+ * Note: password should already be hashed before calling this function
+ */
 bool MainWindow::addUser(const QString& studentID, const QString& hashedPassword)
 {
     if (registeredUsers.contains(studentID)) {
-        return false;  // Duplicate found
+        return false;  /* Duplicate found */
     }
     registeredUsers.insert(studentID, hashedPassword);
     return true;
 }
 
-// Validate login credentials (returns true if match found)
-// Compares hashed password for security
+/**
+ * Validate login credentials (returns true if match found)
+ * Compares hashed password for security
+ */
 bool MainWindow::validateLogin(const QString &studentID, const QString &password)
 {
     if (!registeredUsers.contains(studentID)) {
-        return false;  // Student ID not found
+        return false;  /* Student ID not found */
     }
     QString storedHashedPassword = registeredUsers.value(studentID);
     QString inputHashedPassword = hashPassword(password);
@@ -49,13 +55,15 @@ bool MainWindow::validateLogin(const QString &studentID, const QString &password
 }
 
 
-// Constructor - Initialize login window
+/**
+ * Constructor - Initialize login window
+ */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , signupWindow(nullptr)
     , manageCoursesPage(nullptr)
-    , registeredUsers()  // HashTable from datastructures.h
+    , registeredUsers()  /* HashTable from datastructures.h */
     , failedLoginAttempts(0)
     , rememberMeCheckbox(nullptr)
     , togglePasswordBtn(nullptr)
@@ -63,19 +71,19 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     this->setWindowTitle("Login");
 
-    loadUsersFromFile();  // Load saved users
+    loadUsersFromFile();  /* Load saved users */
 
-    if (!registeredUsers.contains("12345")) {  // Add default test account on first run
+    if (!registeredUsers.contains("12345")) {  /* Add default test account on first run */
         addUser("12345", hashPassword("password123"));
         saveUsersToFile();
     }
 
-    // Create Remember Me checkbox (positioned below password field with more spacing)
+    /* Create Remember Me checkbox (positioned below password field with more spacing) */
     rememberMeCheckbox = new QCheckBox("Remember Me", this);
     rememberMeCheckbox->setGeometry(ui->lineEdit_Password->x(),
                                      ui->lineEdit_Password->y() + ui->lineEdit_Password->height() + 15,
                                      180, 30);
-    // Dark mode friendly style - white text with visible checkbox
+    /* Dark mode friendly style - white text with visible checkbox */
     rememberMeCheckbox->setStyleSheet(
         "QCheckBox { "
         "   color: white; "
@@ -104,7 +112,7 @@ MainWindow::MainWindow(QWidget *parent)
         "}"
     );
 
-    // Create password visibility toggle button
+    /* Create password visibility toggle button */
     togglePasswordBtn = new QPushButton("Show", this);
     togglePasswordBtn->setGeometry(ui->lineEdit_Password->x() + ui->lineEdit_Password->width() + 5,
                                     ui->lineEdit_Password->y(),
@@ -112,10 +120,10 @@ MainWindow::MainWindow(QWidget *parent)
     togglePasswordBtn->setStyleSheet("QPushButton { background-color: #3498db; color: white; border: none; border-radius: 3px; font-size: 10px; }");
     connect(togglePasswordBtn, &QPushButton::clicked, this, &MainWindow::togglePasswordVisibility);
 
-    // Set password field to hide characters
+    /* Set password field to hide characters */
     ui->lineEdit_Password->setEchoMode(QLineEdit::Password);
 
-    // Create Reset Password button (same line as Remember Me, on the right)
+    /* Create Reset Password button (same line as Remember Me, on the right) */
     resetPasswordBtn = new QPushButton("Forgot Password?", this);
     resetPasswordBtn->setGeometry(ui->lineEdit_Password->x() + 190,
                                    ui->lineEdit_Password->y() + ui->lineEdit_Password->height() + 15,
@@ -133,17 +141,19 @@ MainWindow::MainWindow(QWidget *parent)
         "}"
     );
     resetPasswordBtn->setCursor(Qt::PointingHandCursor);
-    resetPasswordBtn->hide();  // Hidden by default
+    resetPasswordBtn->hide();  /* Hidden by default */
     connect(resetPasswordBtn, &QPushButton::clicked, this, &MainWindow::onResetPassword);
 
     connect(ui->pushButton_Login, SIGNAL(clicked()), this, SLOT(on_submit_clicked()));
     connect(ui->pushButton_SignUp, SIGNAL(clicked()), this, SLOT(on_toggle_mode_clicked()));
 
-    // Load remembered user if exists
+    /* Load remembered user if exists */
     loadRememberedUser();
 }
 
-// Destructor - Clean up memory
+/**
+ * Destructor - Clean up memory
+ */
 MainWindow::~MainWindow()
 {
     delete ui;
@@ -152,10 +162,12 @@ MainWindow::~MainWindow()
     if (rememberMeCheckbox) delete rememberMeCheckbox;
     if (togglePasswordBtn) delete togglePasswordBtn;
     if (resetPasswordBtn) delete resetPasswordBtn;
-    // HashTable destructor auto-called
+    /* HashTable destructor auto-called */
 }
 
-// Toggle password visibility
+/**
+ * Toggle password visibility
+ */
 void MainWindow::togglePasswordVisibility()
 {
     if (ui->lineEdit_Password->echoMode() == QLineEdit::Password) {
@@ -167,7 +179,9 @@ void MainWindow::togglePasswordVisibility()
     }
 }
 
-// Save remembered user to settings
+/**
+ * Save remembered user to settings
+ */
 void MainWindow::saveRememberedUser()
 {
     QSettings settings("CourseRegistration", "Login");
@@ -178,7 +192,9 @@ void MainWindow::saveRememberedUser()
     }
 }
 
-// Load remembered user from settings
+/**
+ * Load remembered user from settings
+ */
 void MainWindow::loadRememberedUser()
 {
     QSettings settings("CourseRegistration", "Login");
@@ -188,7 +204,7 @@ void MainWindow::loadRememberedUser()
         if (rememberMeCheckbox) {
             rememberMeCheckbox->setChecked(true);
         }
-        // Focus on password field since student ID is already filled
+        /* Focus on password field since student ID is already filled */
         if (ui->lineEdit_Password) {
             ui->lineEdit_Password->setFocus();
         }
@@ -196,8 +212,9 @@ void MainWindow::loadRememberedUser()
 }
 
 
-// Login button handler with brute force protection
-void MainWindow::on_submit_clicked()
+/**
+ * Login button handler with brute force protection
+ */
 {
     QString studentID = ui->lineEdit_StudentID->text().trimmed();
     QString password = ui->lineEdit_Password->text();
@@ -207,15 +224,15 @@ void MainWindow::on_submit_clicked()
         return;
     }
 
-    // Reset counter if different user is trying to login
+    /* Reset counter if different user is trying to login */
     if (studentID != lastAttemptedUser) {
         failedLoginAttempts = 0;
         lastAttemptedUser = studentID;
     }
 
-    // Check if account is locked due to too many failed attempts
+    /* Check if account is locked due to too many failed attempts */
     if (failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
-        resetPasswordBtn->show();  // Show reset password option
+        resetPasswordBtn->show();  /* Show reset password option */
         UIDialogs::showError(this, "Account Locked",
             QString("Too many failed login attempts (%1)!\n\n"
                     "Click 'Forgot Password?' to reset your password.")
@@ -225,8 +242,8 @@ void MainWindow::on_submit_clicked()
 
     if (validateLogin(studentID, password)) {
         currentUser = studentID;
-        failedLoginAttempts = 0;  // Reset on successful login
-        saveRememberedUser();  // Save if Remember Me is checked
+        failedLoginAttempts = 0;  /* Reset on successful login */
+        saveRememberedUser();  /* Save if Remember Me is checked */
         UIDialogs::showInfo(this, "Login Successful", "Welcome " + studentID + "!");
         switchToManageCoursesPage();
     } else {
@@ -238,7 +255,7 @@ void MainWindow::on_submit_clicked()
                 QString("Invalid Student ID or Password!\n\nRemaining attempts: %1")
                     .arg(remainingAttempts));
         } else {
-            resetPasswordBtn->show();  // Show reset password option
+            resetPasswordBtn->show();  /* Show reset password option */
             UIDialogs::showError(this, "Account Locked",
                 QString("Too many failed login attempts!\n\n"
                         "Your account has been locked.\n"
@@ -248,12 +265,14 @@ void MainWindow::on_submit_clicked()
     }
 }
 
-// Reset password function - allows user to set a new password
+/**
+ * Reset password function - allows user to set a new password
+ */
 void MainWindow::onResetPassword()
 {
     QString studentID = ui->lineEdit_StudentID->text().trimmed();
 
-    // Check if student ID is entered
+    /* Check if student ID is entered */
     if (studentID.isEmpty()) {
         UIDialogs::showWarning(this, "Reset Password",
             "Please enter your Student ID first, then click 'Forgot Password?'");
@@ -261,24 +280,24 @@ void MainWindow::onResetPassword()
         return;
     }
 
-    // Check if student ID exists
+    /* Check if student ID exists */
     if (!registeredUsers.contains(studentID)) {
         UIDialogs::showError(this, "Reset Password",
             "Student ID not found!\n\nPlease check your Student ID or create a new account.");
         return;
     }
 
-    // Ask for new password
+    /* Ask for new password */
     bool ok;
     QString newPassword = QInputDialog::getText(this, "Reset Password",
         QString("Reset password for: %1\n\nEnter new password (min 6 chars, must have letter + number):").arg(studentID),
         QLineEdit::Password, "", &ok);
 
     if (!ok || newPassword.isEmpty()) {
-        return;  // User cancelled
+        return;  /* User cancelled */
     }
 
-    // Validate new password strength
+    /* Validate new password strength */
     if (newPassword.length() < 6) {
         UIDialogs::showWarning(this, "Weak Password", "Password must be at least 6 characters!");
         return;
@@ -296,13 +315,13 @@ void MainWindow::onResetPassword()
         return;
     }
 
-    // Confirm new password
+    /* Confirm new password */
     QString confirmPassword = QInputDialog::getText(this, "Confirm Password",
         "Please confirm your new password:",
         QLineEdit::Password, "", &ok);
 
     if (!ok) {
-        return;  // User cancelled
+        return;  /* User cancelled */
     }
 
     if (newPassword != confirmPassword) {
@@ -310,13 +329,13 @@ void MainWindow::onResetPassword()
         return;
     }
 
-    // Update password in hash table
+    /* Update password in hash table */
     QString hashedPassword = hashPassword(newPassword);
     registeredUsers.remove(studentID);
     registeredUsers.insert(studentID, hashedPassword);
     saveUsersToFile();
 
-    // Reset login attempts and hide reset button
+    /* Reset login attempts and hide reset button */
     failedLoginAttempts = 0;
     lastAttemptedUser.clear();
     resetPasswordBtn->hide();
@@ -328,10 +347,12 @@ void MainWindow::onResetPassword()
     ui->lineEdit_Password->setFocus();
 }
 
-// SignUp button handler - Open signup window
+/**
+ * SignUp button handler - Open signup window
+ */
 void MainWindow::on_toggle_mode_clicked()
 {
-    if (signupWindow == nullptr) {  // Lazy initialization
+    if (signupWindow == nullptr) {  /* Lazy initialization */
         signupWindow = new SignupWindow(this);
         connect(signupWindow, SIGNAL(userRegistered(const QString&, const QString&)),
                 this, SLOT(on_userRegistered(const QString&, const QString&)));
@@ -339,8 +360,10 @@ void MainWindow::on_toggle_mode_clicked()
     signupWindow->exec();
 }
 
-// Handle user registration from SignupWindow
-// Password is hashed before storing for security
+/**
+ * Handle user registration from SignupWindow
+ * Password is hashed before storing for security
+ */
 void MainWindow::on_userRegistered(const QString &studentID, const QString &password)
 {
     QString hashedPassword = hashPassword(password);
@@ -353,7 +376,9 @@ void MainWindow::on_userRegistered(const QString &studentID, const QString &pass
 }
 
 
-// Switch to course management page after successful login
+/**
+ * Switch to course management page after successful login
+ */
 void MainWindow::switchToManageCoursesPage()
 {
     if (manageCoursesPage != nullptr) {
@@ -364,23 +389,27 @@ void MainWindow::switchToManageCoursesPage()
     manageCoursesPage->show();
 }
 
-// Switch back to login page (logout) - properly cleans up memory
+/**
+ * Switch back to login page (logout) - properly cleans up memory
+ */
 void MainWindow::switchToLoginPage()
 {
     if (manageCoursesPage) {
         manageCoursesPage->hide();
-        delete manageCoursesPage;  // Fix memory leak: delete instead of just hiding
+        delete manageCoursesPage;  /* Fix memory leak: delete instead of just hiding */
         manageCoursesPage = nullptr;
     }
     ui->lineEdit_StudentID->clear();
     ui->lineEdit_Password->clear();
-    currentUser.clear();  // Clear current user on logout
-    failedLoginAttempts = 0;  // Reset failed attempts on logout
+    currentUser.clear();  /* Clear current user on logout */
+    failedLoginAttempts = 0;  /* Reset failed attempts on logout */
     this->show();
 }
 
-// Save all users to users.txt (format: studentID,hashedPassword)
-// Note: Passwords are stored as SHA-256 hashes for security
+/**
+ * Save all users to users.txt (format: studentID,hashedPassword)
+ * Note: Passwords are stored as SHA-256 hashes for security
+ */
 void MainWindow::saveUsersToFile()
 {
     QString appDir = QCoreApplication::applicationDirPath();
@@ -393,25 +422,27 @@ void MainWindow::saveUsersToFile()
     }
 
     QTextStream out(&file);
-    LinkedList<QString> studentIDs = registeredUsers.keys();  // Get all keys from HashTable
+    LinkedList<QString> studentIDs = registeredUsers.keys();  /* Get all keys from HashTable */
 
     for (int i = 0; i < studentIDs.size(); ++i) {
         QString studentID = studentIDs[i];
         QString password = registeredUsers.value(studentID);
-        out << studentID << "," << password << "\n";  // Write in CSV format
+        out << studentID << "," << password << "\n";  /* Write in CSV format */
     }
 
     file.close();
 }
 
-// Load users from users.txt on startup
+/**
+ * Load users from users.txt on startup
+ */
 void MainWindow::loadUsersFromFile()
 {
     QString appDir = QCoreApplication::applicationDirPath();
     QString filePath = appDir + "/users.txt";
     QFile file(filePath);
 
-    if (!file.exists()) return;  // Skip if file doesn't exist (first run)
+    if (!file.exists()) return;  /* Skip if file doesn't exist (first run) */
 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         UIDialogs::showWarning(this, "File Error", "Could not load user data from file!");

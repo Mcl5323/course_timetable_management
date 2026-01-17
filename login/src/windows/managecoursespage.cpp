@@ -22,8 +22,10 @@
 #include <QCoreApplication>
 #include <QFileDialog>
 
-// Constructor - Initialize course management page
-// Note: Initialization order must match declaration order in header file
+/**
+ * Constructor - Initialize course management page
+ * Note: Initialization order must match declaration order in header file
+ */
 ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::ManageCoursesPage)
@@ -41,11 +43,11 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
     this->showMaximized();
     this->setStyleSheet("background-color: " + UIColors::BACKGROUND_DARK_BLUE_GRAY);
 
-    if (ui->dayCombo) {  // Setup day selection
+    if (ui->dayCombo) {  /* Setup day selection */
         ui->dayCombo->addItems({"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"});
     }
 
-    if (ui->startTimeLabel) {  // Setup start time (8am to 10pm)
+    if (ui->startTimeLabel) {  /* Setup start time (8am to 10pm) */
         QStringList hours;
         for (int i = 8; i <= 11; ++i) hours << QString("%1am").arg(i);
         hours << "12pm";
@@ -53,7 +55,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->startTimeLabel->addItems(hours);
     }
 
-    if (ui->endTimeInput) {  // Setup end time (8am to 10pm)
+    if (ui->endTimeInput) {  /* Setup end time (8am to 10pm) */
         QStringList hours;
         for (int i = 8; i <= 11; ++i) hours << QString("%1am").arg(i);
         hours << "12pm";
@@ -61,7 +63,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->endTimeInput->addItems(hours);
     }
 
-    if (ui->coursetable) {  // Setup course table
+    if (ui->coursetable) {  /* Setup course table */
         ui->coursetable->setColumnCount(6);
         ui->coursetable->setHorizontalHeaderLabels({"Select", "Course Name", "Day", "Time", "Classroom", "Actions"});
         ui->coursetable->setRowCount(0);
@@ -72,7 +74,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->coursetable->setColumnWidth(3, 120);
         ui->coursetable->setColumnWidth(4, 120);
         ui->coursetable->setColumnWidth(5, 180);
-        ui->coursetable->setMaximumHeight(400);  // Limit height, enable scrolling
+        ui->coursetable->setMaximumHeight(180);  /* Limit height to 180px, enable scrolling */
         ui->coursetable->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         ui->coursetable->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         ui->coursetable->horizontalHeader()->setStyleSheet(UIStyles::tableHeaderBlue());
@@ -80,7 +82,7 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         ui->coursetable->setAlternatingRowColors(false);
     }
 
-    if (ui->logupbutton) {  // Setup logout button (lambda function)
+    if (ui->logupbutton) {  /* Setup logout button (lambda function) */
         connect(ui->logupbutton, &QPushButton::clicked, this, [this, parent]() {
             this->hide();
             MainWindow *mainWindow = qobject_cast<MainWindow*>(parent);
@@ -90,33 +92,59 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
         });
     }
 
-    // Create search & sort UI components (programmatically created)
+    /* Create Search label (ABOVE TABLE - Y=500) */
+    QLabel *searchSortLabel = new QLabel("Search:", this);
+    searchSortLabel->setGeometry(170, 502, 60, 25);
+    searchSortLabel->setStyleSheet("font: bold 10pt \"Segoe UI\"; color: #FFFFFF; background-color: transparent;");
+    searchSortLabel->show();
+    searchSortLabel->raise();
+
+    // Create search & sort UI components (Y=500, same row as label)
     searchInput = new QLineEdit(this);
-    searchInput->setPlaceholderText("Search courses (name, day, time, classroom)...");
-    searchInput->setGeometry(50, 600, 400, 35);
-    searchInput->setStyleSheet(UIStyles::lineEditWhite());
+    searchInput->setPlaceholderText("Search courses...");
+    searchInput->setGeometry(240, 498, 280, 30);
+    searchInput->setStyleSheet("QLineEdit { background-color: #FFFFFF; color: #000000; border: 2px solid #3498db; border-radius: 4px; padding: 5px; font-size: 11px; }");
+    searchInput->show();
+    searchInput->raise();
 
     searchBtn = new QPushButton("Search", this);
-    searchBtn->setGeometry(460, 600, 100, 35);
-    searchBtn->setStyleSheet(UIStyles::blueButton());
+    searchBtn->setGeometry(530, 498, 70, 30);
+    searchBtn->setStyleSheet("QPushButton { background-color: #3498db; color: white; border: none; border-radius: 4px; padding: 5px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #2980b9; }");
+    searchBtn->show();
+    searchBtn->raise();
 
-    clearSearchBtn = new QPushButton("Clear Search", this);
-    clearSearchBtn->setGeometry(570, 600, 120, 35);
-    clearSearchBtn->setStyleSheet(UIStyles::grayButton());
+    clearSearchBtn = new QPushButton("Clear", this);
+    clearSearchBtn->setGeometry(605, 498, 60, 30);
+    clearSearchBtn->setStyleSheet("QPushButton { background-color: #95a5a6; color: white; border: none; border-radius: 4px; padding: 5px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #7f8c8d; }");
+    clearSearchBtn->show();
+    clearSearchBtn->raise();
+
+    // Sort label and combo
+    QLabel *sortLabel = new QLabel("Sort:", this);
+    sortLabel->setGeometry(680, 502, 40, 25);
+    sortLabel->setStyleSheet("font: bold 10pt \"Segoe UI\"; color: #FFFFFF; background-color: transparent;");
+    sortLabel->show();
+    sortLabel->raise();
 
     sortCombo = new QComboBox(this);
-    sortCombo->setGeometry(900, 600, 250, 35);
-    sortCombo->addItems({"Select Sort Option", "Sort by Name (A-Z)", "Sort by Day (Mon-Sun)", "Sort by Time (Early-Late)", "Sort by Classroom (A-Z)"});
-    sortCombo->setStyleSheet(UIStyles::comboBoxGreen());
+    sortCombo->setGeometry(720, 498, 180, 30);
+    sortCombo->addItems({"Sort by...", "Name (A-Z)", "Day (Mon-Sun)", "Time (Early-Late)", "Classroom (A-Z)"});
+    sortCombo->setStyleSheet("QComboBox { background-color: #FFFFFF; color: #000000; border: 2px solid #2ecc71; border-radius: 4px; padding: 5px; font-size: 11px; }");
+    sortCombo->show();
+    sortCombo->raise();
 
     // Create Import/Export buttons
-    exportBtn = new QPushButton("Export CSV", this);
-    exportBtn->setGeometry(50, 650, 120, 35);
-    exportBtn->setStyleSheet(UIStyles::greenButton());
+    exportBtn = new QPushButton("Export", this);
+    exportBtn->setGeometry(910, 498, 70, 30);
+    exportBtn->setStyleSheet("QPushButton { background-color: #2ecc71; color: white; border: none; border-radius: 4px; padding: 5px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #27ae60; }");
+    exportBtn->show();
+    exportBtn->raise();
 
-    importBtn = new QPushButton("Import CSV", this);
-    importBtn->setGeometry(180, 650, 120, 35);
-    importBtn->setStyleSheet(UIStyles::blueButton());
+    importBtn = new QPushButton("Import", this);
+    importBtn->setGeometry(985, 498, 70, 30);
+    importBtn->setStyleSheet("QPushButton { background-color: #3498db; color: white; border: none; border-radius: 4px; padding: 5px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: #2980b9; }");
+    importBtn->show();
+    importBtn->raise();
 
     setupConnections();  // Connect all signals to slots
     loadCoursesFromFile();  // Load saved courses
@@ -558,14 +586,26 @@ void ManageCoursesPage::onGenerateTimetable() {
 // Create and show timetable window with course data
 void ManageCoursesPage::onLoadingComplete() {
     if (timetableWindow) {
+        timetableWindow->close();
         delete timetableWindow;
         timetableWindow = nullptr;
     }
     timetableWindow = new TIMETABLE(this);
+    timetableWindow->setAttribute(Qt::WA_DeleteOnClose, false);  // Don't auto-delete
     timetableWindow->setCoursesData(courses);
     timetableWindow->show();
     timetableWindow->raise();
     timetableWindow->activateWindow();
+
+    // Connect to finished signal - disable View button when closed
+    connect(timetableWindow, &QDialog::finished, this, [this]() {
+        timetableWindow = nullptr;
+        timetableGenerated = false;
+        if (ui->viewTimetableBtn) {
+            ui->viewTimetableBtn->setEnabled(false);
+            ui->viewTimetableBtn->setToolTip("Please click 'Generate Timetable' first");
+        }
+    });
 
     // Enable View Timetable button after generation
     timetableGenerated = true;
@@ -577,16 +617,17 @@ void ManageCoursesPage::onLoadingComplete() {
 
 // View timetable directly without loading dialog
 void ManageCoursesPage::onViewTimetable() {
+    if (!timetableGenerated || !timetableWindow) {
+        UIDialogs::showWarning(this, "No Timetable", "Please click 'Generate Timetable' first!");
+        return;
+    }
+
     if (courses.isEmpty()) {
         UIDialogs::showWarning(this, "No Courses", "Please add courses first!");
         return;
     }
-    if (timetableWindow) {
-        delete timetableWindow;
-        timetableWindow = nullptr;
-    }
-    timetableWindow = new TIMETABLE(this);
-    timetableWindow->setCoursesData(courses);
+
+    // Show the existing timetable window
     timetableWindow->show();
     timetableWindow->raise();
     timetableWindow->activateWindow();
@@ -732,25 +773,68 @@ void ManageCoursesPage::loadCoursesFromFile()
     refreshTable();
 }
 
-// Linear search - Find courses matching search text (checks name, day, time, classroom)
+/**
+ * ============================================================================
+ * LINEAR SEARCH ALGORITHM IMPLEMENTATION
+ * ============================================================================
+ *
+ * Time Complexity: O(n) - checks every course once
+ * Space Complexity: O(k) where k = number of matches
+ *
+ * How it works:
+ * 1. Convert search text to lowercase for case-insensitive search
+ * 2. Loop through each course in the LinkedList
+ * 3. Check if search text is found in any field (name, day, time, classroom)
+ * 4. If found, add the index to results list
+ *
+ * @param searchText - The text to search for
+ * @return LinkedList<int> - List of indices where matches were found
+ * ============================================================================
+ */
 LinkedList<int> ManageCoursesPage::linearSearchCourses(const QString &searchText)
 {
-    LinkedList<int> matchIndices;
-    QString lowerSearchText = searchText.toLower();
+    LinkedList<int> matchIndices;  // Store indices of matching courses
+    QString lowerSearchText = searchText.toLower();  // Case-insensitive search
 
+    // LINEAR SEARCH: Check each course one by one (O(n) time complexity)
     for (int i = 0; i < courses.size(); ++i) {
         bool matchFound = false;
+
+        // Check all fields for the search text
         if (courses[i].name.toLower().contains(lowerSearchText)) matchFound = true;
         if (courses[i].day.toLower().contains(lowerSearchText)) matchFound = true;
         if (courses[i].startTime.toLower().contains(lowerSearchText)) matchFound = true;
         if (courses[i].endTime.toLower().contains(lowerSearchText)) matchFound = true;
         if (courses[i].classroom.toLower().contains(lowerSearchText)) matchFound = true;
+
+        // If match found in any field, add index to results
         if (matchFound) matchIndices.append(i);
     }
     return matchIndices;
 }
 
-// QuickSort - Sort courses by name/day/time/classroom
+/**
+ * ============================================================================
+ * QUICKSORT ALGORITHM IMPLEMENTATION
+ * ============================================================================
+ *
+ * Time Complexity: O(n log n) average case
+ * Space Complexity: O(n) for temporary array
+ *
+ * How it works:
+ * 1. Define comparison function based on sort criteria
+ * 2. Call quickSort() method on LinkedList (implemented in datastructures.h)
+ * 3. QuickSort uses partition and recursive divide-and-conquer
+ *
+ * Sort options:
+ * - 0: Sort by Name (A-Z alphabetically)
+ * - 1: Sort by Day (Monday -> Sunday)
+ * - 2: Sort by Time (earliest first)
+ * - 3: Sort by Classroom (A-Z alphabetically)
+ *
+ * @param sortBy - Sort criteria (0=name, 1=day, 2=time, 3=classroom)
+ * ============================================================================
+ */
 void ManageCoursesPage::quickSortCourses(int sortBy)
 {
     if (courses.isEmpty()) return;

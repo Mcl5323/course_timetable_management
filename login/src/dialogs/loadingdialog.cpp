@@ -13,8 +13,12 @@ LoadingDialog::LoadingDialog(QWidget *parent)
     setModal(true);
     setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
 
-    // Set background color
-    setStyleSheet("QDialog { background-color: #415a77; }");
+    // Set solid opaque background - no transparency
+    setAutoFillBackground(true);
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, QColor("#415a77"));
+    setPalette(pal);
+    setStyleSheet("QDialog { background-color: #415a77; border: none; }");
 
     // Create layout
     QVBoxLayout *layout = new QVBoxLayout(this);
@@ -24,11 +28,16 @@ LoadingDialog::LoadingDialog(QWidget *parent)
     // Create loading label
     loadingLabel = new QLabel("LOADING...", this);
     loadingLabel->setAlignment(Qt::AlignCenter);
+    loadingLabel->setAutoFillBackground(true);
+    QPalette labelPal = loadingLabel->palette();
+    labelPal.setColor(QPalette::Window, QColor("#415a77"));
+    loadingLabel->setPalette(labelPal);
     loadingLabel->setStyleSheet(
         "QLabel {"
         "   color: white;"
         "   font-size: 20px;"
         "   font-weight: bold;"
+        "   background-color: #415a77;"
         "}"
     );
 
@@ -41,17 +50,18 @@ LoadingDialog::LoadingDialog(QWidget *parent)
     progressBar->setStyleSheet(
         "QProgressBar {"
         "   border: 2px solid #1b263b;"
-        "   border-radius: 15px;"
+        "   border-radius: 10px;"
         "   background-color: #778da9;"
         "   text-align: center;"
         "   color: white;"
         "   font-weight: bold;"
-        "   height: 30px;"
+        "   min-height: 25px;"
+        "   max-height: 25px;"
         "}"
         "QProgressBar::chunk {"
-        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        "       stop:0 #e63946, stop:1 #f72585);"
-        "   border-radius: 13px;"
+        "   background-color: #e63946;"
+        "   border-radius: 8px;"
+        "   margin: 1px;"
         "}"
     );
 
