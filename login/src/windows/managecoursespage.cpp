@@ -56,6 +56,9 @@ ManageCoursesPage::ManageCoursesPage(const QString &currentUser, QWidget *parent
 
     ui->setupUi(this);
     this->setWindowTitle("Manage Courses");
+
+    /* Add minimize/maximize buttons to title bar */
+    this->setWindowFlags(Qt::Dialog | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
     this->setWindowState(Qt::WindowMaximized);
     this->showMaximized();
     this->setStyleSheet("background-color: " + UIColors::BACKGROUND_DARK_BLUE_GRAY);

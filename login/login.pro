@@ -13,7 +13,7 @@ win32 {
     # RC_ICONS = app_icon.ico
 }
 
-TARGET = login
+TARGET = "Student Course Registration & Timetable Management System"
 TEMPLATE = app
 
 # Include paths for headers

@@ -18,7 +18,9 @@ TIMETABLE::TIMETABLE(QWidget *parent)
 
     // Initialize window properties and maximize
     this->setWindowTitle("View Timetable");
-    this->setWindowFlags(Qt::Window);  // Set as normal window
+
+    /* Add minimize/maximize buttons to title bar */
+    this->setWindowFlags(Qt::Dialog | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
     this->setWindowState(Qt::WindowMaximized);
     this->showMaximized();
 

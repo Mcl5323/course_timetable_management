@@ -34,6 +34,9 @@ SignupWindow::SignupWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    /* Add minimize/maximize buttons to title bar */
+    this->setWindowFlags(Qt::Dialog | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+
     // Set password fields to hide characters
     ui->lineEdit_Password->setEchoMode(QLineEdit::Password);
     ui->lineEdit_ConfirmPassword_2->setEchoMode(QLineEdit::Password);
