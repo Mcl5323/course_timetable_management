@@ -1,0 +1,26 @@
+# C++ and Qt build folders
+login/build/
+login/release/
+login/debug/
+login/.qtcreator/
+*.o
+*.exe
+*.obj
+*.pro.user
+*.stash
+Makefile*
+ui_*.h
+moc_*.cpp
+
+# Qt deployment
+login/deploy/
+login/nul
+
+# Claude/VS Code settings
+.claude/
+.vscode/
+login/.claude/
+
+# Data files (optional, keeping backup or local test data out)
+courses_*.txt
+users.txt
