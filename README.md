@@ -47,12 +47,4 @@ We use professional programming methods to make the system fast and reliable:
 
 ---
 
-## 🖥️ Screenshots
-
-<p align="center">
-  <img src="https://via.placeholder.com/600x350?text=App+Screenshot+1" width="600" alt="Login Page">
-</p>
-
----
-
-**Developed by: [Your Name]**
+**Developed by: [YEAP BOON SHEN , LEE JIA YIN , SAW CHEE HONG]**
