@@ -14,8 +14,6 @@ If you want to read the full details about how this project works, please click 
   </a>
 </p>
 
-*(Note: Please make sure your PDF file is named `Documentation.pdf` and is in the main folder of this project.)*
-
 ---
 
 ## ⭐ Main Features
