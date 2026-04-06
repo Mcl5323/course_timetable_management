@@ -1,0 +1,3 @@
+TDS 6213|Monday|8am|10am|CLC 0001
+tds 6213|Tuesday|8am|10am|CLC 0001
+TTT 6213|Monday|8am|10am|CLC 0002

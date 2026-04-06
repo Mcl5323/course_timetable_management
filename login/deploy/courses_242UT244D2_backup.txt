@@ -1,0 +1,17 @@
+TEH 6213|Friday|2pm|4pm|Ai Lab
+TEH 6213|Tuesday|12pm|2pm|AI Lab
+TEH 6213|Wednesday|12pm|2pm|Ai Lab
+TDS 6213|Wednesday|12pm|2pm|CLC 0001
+TTT|Wednesday|12pm|2pm|CLC 1003
+TDS 6213|Friday|12pm|2pm|CLC 1004
+TTT 6213|Wednesday|10am|12pm|CLC 1004
+TTT 6213|Thursday|4pm|6pm|CLC 2001
+TSA 6213|Thursday|2pm|4pm|CLC 2001
+TDS 6213|Tuesday|10am|12pm|CLC 2004
+TDS 6213|Monday|8am|10am|CLC 2005
+TDS 6213|Monday|10am|12pm|CLC 2005
+TTT 6213|Wednesday|10am|12pm|CLC 2005
+TCN 6213|Monday|4pm|6pm|Data Lab
+TSA 6213|Tuesday|4pm|6pm|Data Lab 6677
+TTT 6213|Friday|9am|11am|FOB 4001
+TCN 6213|Monday|5pm|7pm|Unix Lab
